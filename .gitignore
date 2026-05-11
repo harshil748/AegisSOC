@@ -1,0 +1,63 @@
+# Secrets / env
+.env
+.env.*
+!.env.example
+infra/k8s/02-secrets.yaml
+infra/helm/aegis/values-*.local.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg
+build/
+dist/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+
+# Data / lake / model artifacts
+data/lake/
+data/raw/
+*.parquet
+models/*.pt
+models/*.onnx
+models/*.pkl
+data/policy/bandit_state.json
+data/idempotency/
+data/*.sqlite3
+**/data/db/
+
+# Eval outputs
+eval/*.json
+eval/load_test_history.md
+
+# Terraform-style local state (if added later)
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+logs/
+
+# Docker
+docker-compose.override.yml
+/Users/harshil/Developer/AegisSOC/prompt.md
+
+prompt.md

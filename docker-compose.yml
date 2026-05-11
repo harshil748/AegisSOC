@@ -1,0 +1,492 @@
+name: aegissoc
+
+# ---------------------------------------------------------------------------
+# AegisSOC full local stack.
+#
+# Port map (see README.md "Service port table" for the authoritative list):
+#   3000  frontend (React/nginx)         8080  frontend_gateway
+#   8001  ingestion                      8002  normalization
+#   8003  enrichment                     8004  graph_builder
+#   8005  detection                      8006  case_management
+#   8007  llm_triage                     8008  response_policy
+#   8009  approval                       8010  audit
+#   7474  neo4j http / 7687 neo4j bolt   5432  postgres
+#   6379  redis                          9200  opensearch
+#   9092  redpanda (kafka API)           9644  redpanda admin
+#   9090  prometheus                    3001  grafana
+#   4317  otel-collector gRPC           4318  otel-collector http
+#
+# AEGIS_SYNC_MODE controls whether data-path services process events
+# synchronously via HTTP (sync, easiest for demos/tests) or asynchronously
+# via Kafka/Redpanda topics (async, the production-shaped path). Every
+# backend service reads this from its environment; see docs/ARCHITECTURE.md.
+# ---------------------------------------------------------------------------
+
+x-common-env: &common-env
+  AEGIS_SYNC_MODE: ${AEGIS_SYNC_MODE:-async}
+  ENVIRONMENT: ${ENVIRONMENT:-local}
+  TENANT_ID: ${TENANT_ID:-default}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  KAFKA_BOOTSTRAP: redpanda:9092
+  REDIS_URL: redis://redis:6379/0
+  POSTGRES_DSN: postgresql+asyncpg://aegis:aegis@postgres:5432/aegis
+  NEO4J_URI: bolt://neo4j:7687
+  NEO4J_USER: neo4j
+  NEO4J_PASSWORD: ${NEO4J_PASSWORD:-aegispassword}
+  OPENSEARCH_URL: http://opensearch:9200
+  JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  OTEL_ENDPOINT: http://otel-collector:4318
+  # Writable paths — never under the read-only ./data bind mount
+  AEGIS_DATA_DIR: /srv/data
+  AEGIS_BUS_DIR: /var/lib/aegis/bus
+  AEGIS_IDEMPOTENCY_DIR: /var/lib/aegis/idempotency
+
+x-service-defaults: &service-defaults
+  networks: [aegis-net]
+  restart: unless-stopped
+  depends_on:
+    redpanda:
+      condition: service_healthy
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # -------------------------------------------------------------------------
+  # Infra: streaming, storage, cache
+  # -------------------------------------------------------------------------
+  redpanda:
+    image: redpandadata/redpanda:v24.2.7
+    container_name: aegis-redpanda
+    command:
+      - redpanda
+      - start
+      - --smp=1
+      - --memory=1G
+      - --overprovisioned
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr=PLAINTEXT://redpanda:9092
+      - --pandaproxy-addr=0.0.0.0:8082
+      - --advertise-pandaproxy-addr=redpanda:8082
+    ports:
+      - "9092:9092"   # Kafka-compatible API
+      - "9644:9644"   # Admin API / metrics
+      - "8082:8082"   # HTTP proxy (Pandaproxy)
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    networks: [aegis-net]
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health", "--exit-when-healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5.23-community
+    container_name: aegis-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-aegispassword}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_memory_pagecache_size: 512m
+      NEO4J_server_memory_heap_max__size: 1G
+    ports:
+      - "7474:7474"   # Browser / HTTP
+      - "7687:7687"   # Bolt
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    networks: [aegis-net]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: aegis-postgres
+    environment:
+      POSTGRES_USER: aegis
+      POSTGRES_PASSWORD: aegis
+      POSTGRES_DB: aegis
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/sql:/docker-entrypoint-initdb.d:ro
+    networks: [aegis-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aegis -d aegis"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: aegis-redis
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks: [aegis-net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+
+  opensearch:
+    image: opensearchproject/opensearch:2.16.0
+    container_name: aegis-opensearch
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+      - "9600:9600"   # performance analyzer
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    networks: [aegis-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # Backend services (data path + control plane)
+  # -------------------------------------------------------------------------
+  ingestion:
+    build:
+      context: .
+      dockerfile: services/ingestion/Dockerfile
+    container_name: aegis-ingestion
+    <<: *service-defaults
+    environment:
+      <<: *common-env
+      SERVICE_PORT: "8001"
+      AEGIS_IDEMPOTENCY_DIR: /var/lib/aegis/idempotency
+    ports:
+      - "8001:8001"
+    volumes:
+      # Live-editable scenarios/samples without an image rebuild; the image
+      # also bakes in a copy of ./data at build time (see
+      # services/ingestion/Dockerfile) so this bind mount is optional but
+      # recommended for demo iteration.
+      - ./data:/srv/data:ro
+      - ingestion-idempotency:/var/lib/aegis/idempotency
+      - aegis-bus:/var/lib/aegis/bus
+
+  normalization:
+    build:
+      context: .
+      dockerfile: services/normalization/Dockerfile
+    container_name: aegis-normalization
+    <<: *service-defaults
+    environment:
+      <<: *common-env
+      SERVICE_PORT: "8002"
+    ports:
+      - "8002:8002"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      ingestion:
+        condition: service_started
+
+  enrichment:
+    build:
+      context: .
+      dockerfile: services/enrichment/Dockerfile
+    container_name: aegis-enrichment
+    <<: *service-defaults
+    environment:
+      <<: *common-env
+      SERVICE_PORT: "8003"
+    ports:
+      - "8003:8003"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      normalization:
+        condition: service_started
+
+  graph_builder:
+    build:
+      context: .
+      dockerfile: services/graph_builder/Dockerfile
+    container_name: aegis-graph-builder
+    <<: *service-defaults
+    environment:
+      <<: *common-env
+      SERVICE_PORT: "8004"
+    ports:
+      - "8004:8004"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      enrichment:
+        condition: service_started
+
+  detection:
+    build:
+      context: .
+      dockerfile: services/detection/Dockerfile
+    container_name: aegis-detection
+    <<: *service-defaults
+    environment:
+      <<: *common-env
+      SERVICE_PORT: "8005"
+    ports:
+      - "8005:8005"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+      graph_builder:
+        condition: service_started
+
+  case_management:
+    build:
+      context: .
+      dockerfile: services/case_management/Dockerfile
+    container_name: aegis-case-management
+    <<: *service-defaults
+    environment:
+      <<: *common-env
+      SERVICE_PORT: "8006"
+    ports:
+      - "8006:8006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+
+  llm_triage:
+    build:
+      context: .
+      dockerfile: services/llm_triage/Dockerfile
+    container_name: aegis-llm-triage
+    <<: *service-defaults
+    environment:
+      <<: *common-env
+      SERVICE_PORT: "8007"
+      LLM_ENABLED: ${LLM_ENABLED:-true}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      LLM_MAX_EVIDENCE_ITEMS: ${LLM_MAX_EVIDENCE_ITEMS:-40}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+    ports:
+      - "8007:8007"
+
+  response_policy:
+    build:
+      context: .
+      dockerfile: services/response_policy/Dockerfile
+    container_name: aegis-response-policy
+    <<: *service-defaults
+    environment:
+      <<: *common-env
+      SERVICE_PORT: "8008"
+    ports:
+      - "8008:8008"
+
+  approval:
+    build:
+      context: .
+      dockerfile: services/approval/Dockerfile
+    container_name: aegis-approval
+    <<: *service-defaults
+    environment:
+      <<: *common-env
+      SERVICE_PORT: "8009"
+    ports:
+      - "8009:8009"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  audit:
+    build:
+      context: .
+      dockerfile: services/audit/Dockerfile
+    container_name: aegis-audit
+    <<: *service-defaults
+    environment:
+      <<: *common-env
+      SERVICE_PORT: "8010"
+    ports:
+      - "8010:8010"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend_gateway:
+    build:
+      context: .
+      dockerfile: services/frontend_gateway/Dockerfile
+    container_name: aegis-frontend-gateway
+    <<: *service-defaults
+    environment:
+      <<: *common-env
+      SERVICE_PORT: "8080"
+      INGESTION_URL: http://ingestion:8001
+      NORMALIZATION_URL: http://normalization:8002
+      ENRICHMENT_URL: http://enrichment:8003
+      GRAPH_BUILDER_URL: http://graph_builder:8004
+      DETECTION_URL: http://detection:8005
+      CASE_MANAGEMENT_URL: http://case_management:8006
+      LLM_TRIAGE_URL: http://llm_triage:8007
+      RESPONSE_POLICY_URL: http://response_policy:8008
+      APPROVAL_URL: http://approval:8009
+      AUDIT_URL: http://audit:8010
+      CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "8080:8080"
+    depends_on:
+      ingestion:
+        condition: service_started
+      normalization:
+        condition: service_started
+      enrichment:
+        condition: service_started
+      case_management:
+        condition: service_started
+      detection:
+        condition: service_started
+      graph_builder:
+        condition: service_started
+      llm_triage:
+        condition: service_started
+      response_policy:
+        condition: service_started
+      approval:
+        condition: service_started
+      audit:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: aegis-frontend
+    networks: [aegis-net]
+    restart: unless-stopped
+    environment:
+      # Runtime nginx envsubst target (see frontend/nginx.conf); the built
+      # static bundle itself calls same-origin relative "/api/..." paths.
+      GATEWAY_UPSTREAM: http://frontend_gateway:8080
+    ports:
+      - "3000:80"
+    depends_on:
+      frontend_gateway:
+        condition: service_started
+
+  # -------------------------------------------------------------------------
+  # Observability
+  # -------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: aegis-prometheus
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    networks: [aegis-net]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.4
+    container_name: aegis-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    networks: [aegis-net]
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles: ["observability", "full"]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.108.0
+    container_name: aegis-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./infra/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # collector self-metrics
+      - "8889:8889"   # collector prometheus exporter (traces->metrics bridge)
+    networks: [aegis-net]
+    restart: unless-stopped
+    profiles: ["observability", "full"]
+
+networks:
+  aegis-net:
+    driver: bridge
+
+volumes:
+  ingestion-idempotency:
+  aegis-bus:
+  redpanda-data:
+  neo4j-data:
+  neo4j-logs:
+  postgres-data:
+  redis-data:
+  opensearch-data:
+  prometheus-data:
+  grafana-data:

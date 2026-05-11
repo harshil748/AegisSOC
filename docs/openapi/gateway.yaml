@@ -1,0 +1,722 @@
+openapi: 3.0.3
+info:
+  title: AegisSOC Gateway API
+  description: >-
+    Public API surface for the AegisSOC analyst UI, served by
+    frontend_gateway (port 8080). This gateway terminates JWT auth + RBAC
+    and exposes a BFF `/api/*` surface for the React UI and also proxies `/api/v1/*` to internal services (case_management, detection,
+    graph_builder, llm_triage, response_policy, approval, audit,
+    ingestion) which are not directly exposed outside the cluster
+    network. See docs/threat-model/THREAT_MODEL.md and docs/SECURITY.md.
+  version: "1.0.0"
+  x-bff-note: >-
+    Primary analyst UI contract is unversioned `/api/*`
+    (auth, alerts, cases/{id}/graph|timeline|triage|evidence, actions,
+    approvals, audit, metrics, demo/run-scenario). Internal service
+    proxies remain under `/api/v1/proxy/{service}/...`.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: http://localhost:8080
+    description: Local docker-compose
+  - url: https://aegissoc.example.com/api
+    description: Production (behind ingress TLS termination)
+
+tags:
+  - name: auth
+  - name: cases
+  - name: detections
+  - name: graph
+  - name: triage
+  - name: response
+  - name: approvals
+  - name: audit
+  - name: ingestion
+  - name: system
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [system]
+      summary: Liveness check
+      security: []
+      responses:
+        "200":
+          description: Service is alive
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthStatus" }
+
+  /ready:
+    get:
+      tags: [system]
+      summary: Readiness check
+      security: []
+      responses:
+        "200":
+          description: Service is ready to accept traffic
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /metrics:
+    get:
+      tags: [system]
+      summary: Prometheus metrics
+      security: []
+      responses:
+        "200":
+          description: Prometheus text exposition format
+          content:
+            text/plain:
+              schema: { type: string }
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Authenticate and obtain a bearer token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenResponse" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+
+  /api/auth/me:
+    get:
+      tags: [auth]
+      summary: Current authenticated user
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /api/cases/{caseId}/graph:
+    get:
+      tags: [graph]
+      summary: Attack-path graph for a case (Cytoscape-ready)
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Nodes and edges
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /api/cases/{caseId}/timeline:
+    get:
+      tags: [cases]
+      summary: Case timeline
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Timeline entries
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /api/cases/{caseId}/evidence:
+    get:
+      tags: [triage]
+      summary: Bounded evidence set used for grounded triage
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Evidence items
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /api/metrics:
+    get:
+      tags: [system]
+      summary: Aggregated SOC/system metrics for the dashboard
+      responses:
+        "200":
+          description: Metrics snapshot
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /api/demo/scenarios:
+    get:
+      tags: [ingestion]
+      summary: List seeded demo scenarios
+      responses:
+        "200":
+          description: Scenario catalog
+          content:
+            application/json:
+              schema: { type: array, items: { type: object, additionalProperties: true } }
+
+  /api/cases:
+    get:
+      tags: [cases]
+      summary: List cases (alert queue)
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/CaseStatus" }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, maximum: 500 }
+      responses:
+        "200":
+          description: List of cases
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Case" }
+    post:
+      tags: [cases]
+      summary: Create a case
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateCaseRequest" }
+      responses:
+        "200":
+          description: Created case
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Case" }
+
+  /api/cases/{caseId}:
+    get:
+      tags: [cases]
+      summary: Get a case by ID
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Case detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Case" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/cases/{caseId}/status:
+    post:
+      tags: [cases]
+      summary: Update case status
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: status
+          in: query
+          required: true
+          schema: { $ref: "#/components/schemas/CaseStatus" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { type: object, properties: { case_id: { type: string }, status: { type: string } } }
+
+  /api/cases/{caseId}/feedback:
+    post:
+      tags: [cases]
+      summary: Submit analyst feedback for a case (feeds offline eval/RL, see docs/adr/0003)
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FeedbackRequest" }
+      responses:
+        "200":
+          description: Feedback recorded
+          content:
+            application/json:
+              schema: { type: object, properties: { case_id: { type: string }, status: { type: string } } }
+
+  /api/v1/detections/score:
+    post:
+      tags: [detections]
+      summary: Score a batch of enriched events (rule + graph + ensemble)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScoreRequest" }
+      responses:
+        "200":
+          description: Detections and alert count
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScoreResponse" }
+
+  /api/alerts:
+    get:
+      tags: [detections]
+      summary: List recent alerts ranked by ensemble risk score
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: Alert list
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /api/v1/graph/entity/{nodeId}:
+    get:
+      tags: [graph]
+      summary: Fetch an entity and its 1-hop neighborhood from the temporal graph
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Entity with neighbors
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /api/cases/{caseId}/triage:
+    post:
+      tags: [triage]
+      summary: Generate an evidence-grounded triage report for a case
+      description: >-
+        The LLM never sets the detection score; this endpoint only
+        summarizes, maps ATT&CK, and recommends next steps from a bounded,
+        cited evidence set (see docs/adr/0002 and docs/adr/0004).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TriageRequest" }
+      responses:
+        "200":
+          description: Triage report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TriageReport" }
+        "503":
+          description: LLM triage disabled
+
+  /api/actions:
+    post:
+      tags: [response]
+      summary: Get a recommended response action for a case
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecommendRequest" }
+      responses:
+        "200":
+          description: Recommended action (disruptive actions require approval)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Action" }
+
+  /api/v1/response/playbooks:
+    get:
+      tags: [response]
+      summary: List available playbooks
+      responses:
+        "200":
+          description: Playbook map
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+
+  /api/approvals:
+    get:
+      tags: [approvals]
+      summary: List pending (or filtered) approval requests
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, default: pending }
+      responses:
+        "200":
+          description: Approval requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Approval" }
+    post:
+      tags: [approvals]
+      summary: Create an approval request for a disruptive action
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ApprovalRequest" }
+      responses:
+        "200":
+          description: Created approval request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Approval" }
+
+  /api/v1/approvals/{approvalId}/decide:
+    post:
+      tags: [approvals]
+      summary: Approve or reject a pending action (admin role required)
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: approvalId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Decision" }
+      responses:
+        "200":
+          description: Decision recorded
+          content:
+            application/json:
+              schema: { type: object, properties: { approval_id: { type: string }, status: { type: string } } }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/audit:
+    get:
+      tags: [audit]
+      summary: Query the audit trail (admin role required)
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: resource_id
+          in: query
+          schema: { type: string }
+        - name: actor_type
+          in: query
+          schema: { type: string, enum: [user, system, llm, service] }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 100 }
+      responses:
+        "200":
+          description: Audit events
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AuditEvent" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/ingest:
+    post:
+      tags: [ingestion]
+      summary: Ingest a batch of raw telemetry records
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IngestBatch" }
+      responses:
+        "200":
+          description: Ingest acknowledgement
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IngestAck" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        JWT issued by /api/v1/auth/login. Carries `sub` (user id) and `role`
+        (analyst|admin) claims used for RBAC at the gateway.
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid credentials
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Authenticated but not authorized (role requirement not met)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        detail: { type: string }
+
+    HealthStatus:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        service: { type: string }
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string }
+        password: { type: string, format: password }
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, example: bearer }
+        role: { type: string, enum: [analyst, admin] }
+
+    Severity:
+      type: string
+      enum: [informational, low, medium, high, critical]
+
+    CaseStatus:
+      type: string
+      enum: [new, triaging, investigating, contained, resolved, false_positive]
+
+    CreateCaseRequest:
+      type: object
+      required: [title]
+      properties:
+        tenant_id: { type: string, default: default }
+        title: { type: string }
+        severity: { $ref: "#/components/schemas/Severity" }
+        alert_ids: { type: array, items: { type: string } }
+        entity_ids: { type: array, items: { type: string } }
+        technique_ids: { type: array, items: { type: string } }
+
+    Case:
+      type: object
+      properties:
+        case_id: { type: string }
+        tenant_id: { type: string }
+        title: { type: string }
+        status: { $ref: "#/components/schemas/CaseStatus" }
+        severity: { type: string }
+        risk_score: { type: number, format: float }
+        alert_ids: { type: array, items: { type: string } }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    FeedbackRequest:
+      type: object
+      required: [analyst, verdict]
+      properties:
+        analyst: { type: string }
+        verdict: { type: string, enum: [true_positive, false_positive, benign] }
+        comment: { type: string, nullable: true }
+
+    ScoreRequest:
+      type: object
+      required: [events]
+      properties:
+        tenant_id: { type: string, default: default }
+        events:
+          type: array
+          items: { type: object, additionalProperties: true }
+
+    DetectionHit:
+      type: object
+      properties:
+        detection_id: { type: string }
+        rule_id: { type: string }
+        rule_name: { type: string }
+        severity: { type: string }
+        score: { type: number, format: float, minimum: 0, maximum: 1 }
+        technique_ids: { type: array, items: { type: string } }
+
+    ScoreResponse:
+      type: object
+      properties:
+        detections:
+          type: array
+          items: { $ref: "#/components/schemas/DetectionHit" }
+        alerts_created: { type: integer }
+
+    EvidenceItem:
+      type: object
+      required: [evidence_id, kind, summary]
+      properties:
+        evidence_id: { type: string }
+        kind: { type: string, enum: [event, node, edge, detection, intel] }
+        summary: { type: string, maxLength: 2000 }
+        source: { type: string, nullable: true }
+
+    TriageRequest:
+      type: object
+      required: [case_id]
+      properties:
+        case_id: { type: string }
+        alert_ids: { type: array, items: { type: string } }
+        evidence:
+          type: array
+          items: { $ref: "#/components/schemas/EvidenceItem" }
+          maxItems: 40
+
+    TriageReport:
+      type: object
+      properties:
+        report_id: { type: string }
+        case_id: { type: string }
+        summary: { type: string }
+        likely_objective: { type: string }
+        attack_mapping:
+          type: array
+          items: { type: object, additionalProperties: { type: string } }
+        investigation_queries: { type: array, items: { type: string } }
+        containment_recommendation: { type: string }
+        confidence_explanation: { type: string }
+        groundedness_score: { type: number, format: float, minimum: 0, maximum: 1 }
+        evidence_cited: { type: array, items: { type: string } }
+        unsupported_claims: { type: array, items: { type: string } }
+        model_id: { type: string }
+        created_at: { type: string, format: date-time }
+
+    RecommendRequest:
+      type: object
+      required: [case_id, risk_score]
+      properties:
+        case_id: { type: string }
+        risk_score: { type: number, format: float, minimum: 0, maximum: 1 }
+        likely_objective: { type: string, default: recon }
+        asset_criticality: { type: number, format: float, minimum: 0, maximum: 1, default: 0.5 }
+
+    Action:
+      type: object
+      properties:
+        action_id: { type: string }
+        case_id: { type: string }
+        action_class:
+          type: string
+          enum:
+            - notify
+            - collect_data
+            - create_ticket
+            - quarantine_recommend
+            - disable_account_recommend
+            - isolate_host_recommend
+            - block_ioc_recommend
+            - ignore
+            - enrich
+            - escalate
+        title: { type: string }
+        description: { type: string }
+        impact_summary: { type: string }
+        disruptive: { type: boolean }
+        dry_run_default: { type: boolean }
+        playbook_id: { type: string, nullable: true }
+        confidence: { type: number, format: float }
+        status: { type: string }
+
+    ApprovalRequest:
+      type: object
+      required: [action_id, case_id]
+      properties:
+        action_id: { type: string }
+        case_id: { type: string }
+        requested_by: { type: string, default: system }
+        dry_run: { type: boolean, default: true }
+
+    Approval:
+      type: object
+      properties:
+        approval_id: { type: string }
+        action_id: { type: string }
+        case_id: { type: string }
+        status: { type: string, enum: [pending, approved, rejected] }
+        dry_run: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    Decision:
+      type: object
+      required: [decided_by, decision, rationale]
+      properties:
+        decided_by: { type: string }
+        decision: { type: string, enum: [approved, rejected] }
+        rationale: { type: string }
+
+    AuditEvent:
+      type: object
+      properties:
+        audit_id: { type: string }
+        tenant_id: { type: string }
+        actor: { type: string }
+        actor_type: { type: string, enum: [user, system, llm, service] }
+        action: { type: string }
+        resource_type: { type: string }
+        resource_id: { type: string }
+        timestamp: { type: string, format: date-time }
+        details: { type: object, additionalProperties: true }
+        prompt_hash: { type: string, nullable: true }
+        evidence_refs: { type: array, items: { type: string } }
+
+    IngestBatch:
+      type: object
+      required: [source, records]
+      properties:
+        source: { type: string, example: sysmon }
+        tenant_id: { type: string, default: default }
+        records:
+          type: array
+          items: { type: object, additionalProperties: true }
+
+    IngestAck:
+      type: object
+      properties:
+        batch_id: { type: string }
+        accepted: { type: integer }
+        rejected: { type: integer }
+        topic: { type: string }

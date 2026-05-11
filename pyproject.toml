@@ -1,0 +1,61 @@
+# Root workspace configuration for AegisSOC.
+#
+# This repo is a service-oriented monorepo, not a single installable
+# package: each service under services/<name>/ has its own
+# requirements.txt (and Dockerfile), and packages/common/ is the one
+# shared library installed into every service image
+# (packages/common/pyproject.toml). This root file exists purely for
+# repo-wide dev tooling (pytest discovery, ruff/black config) and to
+# document the workspace layout in one place — it is intentionally not
+# built/published as a package itself.
+[project]
+name = "aegissoc-workspace"
+version = "0.1.0"
+description = "AegisSOC — AI-assisted SOC triage platform (dev workspace root, not a distributable package)"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+[tool.pytest.ini_options]
+testpaths = ["packages/common/tests", "tests/unit", "tests/integration"]
+python_files = ["test_*.py"]
+addopts = "-ra"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [
+  "frontend",
+  "**/__pycache__",
+  "**/.venv",
+  "data",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+# Workspace member index — kept here as documentation since this repo does
+# not use a Python workspace manager (uv/pdm) across service boundaries;
+# each member below is independently installable (pip install -e <path> or
+# pip install -r <path>/requirements.txt).
+#
+#   packages/common          -> aegis-common (shared schemas/utils, editable install into every service image)
+#   services/ingestion        -> port 8001
+#   services/normalization    -> port 8002
+#   services/enrichment       -> port 8003
+#   services/graph_builder    -> port 8004
+#   services/detection        -> port 8005
+#   services/case_management  -> port 8006
+#   services/llm_triage       -> port 8007
+#   services/response_policy  -> port 8008
+#   services/approval         -> port 8009
+#   services/audit            -> port 8010
+#   services/frontend_gateway -> port 8080
+#   frontend                 -> port 3000 (Node/Vite, see frontend/package.json)
+#   scripts                  -> demo/eval/load-test CLIs (see scripts/requirements.txt)
