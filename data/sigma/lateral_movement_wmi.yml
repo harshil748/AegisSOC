@@ -1,0 +1,22 @@
+id: SIGMA-AEGIS-0005
+title: Lateral Movement via WMI Remote Process Creation
+description: >
+  Detects use of wmic.exe with a remote /node target and process call create,
+  a common WMI-based lateral movement technique that avoids PsExec's service
+  footprint.
+status: stable
+level: high
+logsource:
+  product: sysmon
+  category: process_creation
+detection:
+  selection:
+    image|endswith: "wmic.exe"
+    command_line|contains:
+      - "/node:"
+      - "process call create"
+  condition: selection
+technique_ids: [T1047, T1021.006]
+falsepositives:
+  - Configuration-management tooling (SCCM, monitoring agents) performing
+    legitimate remote inventory or software-deployment calls over WMI.

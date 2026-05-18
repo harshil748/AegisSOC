@@ -1,0 +1,20 @@
+[
+  {"risk_score": 0.92, "asset_criticality": 0.9, "objective": "ransomware", "action_class": "isolate_host_recommend", "reward": 1.0},
+  {"risk_score": 0.88, "asset_criticality": 0.8, "objective": "credential_access", "action_class": "isolate_host_recommend", "reward": 1.0},
+  {"risk_score": 0.81, "asset_criticality": 0.7, "objective": "credential_access", "action_class": "disable_account_recommend", "reward": 0.8},
+  {"risk_score": 0.75, "asset_criticality": 0.6, "objective": "lateral_movement", "action_class": "isolate_host_recommend", "reward": 0.7},
+  {"risk_score": 0.6, "asset_criticality": 0.5, "objective": "phishing", "action_class": "disable_account_recommend", "reward": 0.6},
+  {"risk_score": 0.55, "asset_criticality": 0.4, "objective": "phishing", "action_class": "create_ticket", "reward": 0.5},
+  {"risk_score": 0.4, "asset_criticality": 0.5, "objective": "recon", "action_class": "collect_data", "reward": 0.6},
+  {"risk_score": 0.35, "asset_criticality": 0.3, "objective": "recon", "action_class": "enrich", "reward": 0.55},
+  {"risk_score": 0.2, "asset_criticality": 0.3, "objective": "benign", "action_class": "ignore", "reward": 0.9},
+  {"risk_score": 0.15, "asset_criticality": 0.2, "objective": "benign", "action_class": "notify", "reward": 0.7},
+  {"risk_score": 0.9, "asset_criticality": 0.9, "objective": "ransomware", "action_class": "quarantine_recommend", "reward": 0.85},
+  {"risk_score": 0.7, "asset_criticality": 0.8, "objective": "c2_beacon", "action_class": "block_ioc_recommend", "reward": 0.75},
+  {"risk_score": 0.65, "asset_criticality": 0.6, "objective": "c2_beacon", "action_class": "collect_data", "reward": 0.4},
+  {"risk_score": 0.3, "asset_criticality": 0.4, "objective": "recon", "action_class": "notify", "reward": 0.5},
+  {"risk_score": 0.85, "asset_criticality": 0.95, "objective": "credential_access", "action_class": "escalate", "reward": 0.65},
+  {"risk_score": 0.5, "asset_criticality": 0.5, "objective": "lateral_movement", "action_class": "collect_data", "reward": 0.45},
+  {"risk_score": 0.1, "asset_criticality": 0.2, "objective": "benign", "action_class": "isolate_host_recommend", "reward": -0.6},
+  {"risk_score": 0.25, "asset_criticality": 0.3, "objective": "benign", "action_class": "disable_account_recommend", "reward": -0.5}
+]

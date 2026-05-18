@@ -1,0 +1,19 @@
+id: SIGMA-AEGIS-0016
+title: Suspected C2 Beacon - Trojan Signature over Encrypted Channel
+description: >
+  Detects a network IDS alert categorized as a network trojan / C2 checkin,
+  typically observed as short periodic TLS sessions to a rare external host.
+status: stable
+level: high
+logsource:
+  product: suricata
+  category: alert
+detection:
+  selection:
+    alert_category|contains: "Trojan"
+  condition: selection
+technique_ids: [T1071.001, T1573]
+falsepositives:
+  - Signature false positives against legitimate encrypted telemetry or
+    analytics SDKs; validate against destination reputation/intel before
+    escalating.

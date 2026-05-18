@@ -1,0 +1,27 @@
+id: SIGMA-AEGIS-0001
+title: Suspicious Encoded/Obfuscated PowerShell Command
+description: >
+  Detects PowerShell invocations using -EncodedCommand, download cradles, or
+  hidden-window/bypass flags commonly used by stagers and phishing loaders to
+  evade static string detection.
+status: stable
+level: high
+logsource:
+  product: sysmon
+  category: process_creation
+detection:
+  selection:
+    image|endswith: "powershell.exe"
+    command_line|contains:
+      - "-enc "
+      - "-encodedcommand"
+      - "frombase64string"
+      - "-nop -w hidden"
+      - "-windowstyle hidden"
+      - "downloadstring"
+  condition: selection
+technique_ids: [T1059.001, T1027]
+falsepositives:
+  - Signed administrative or RMM/SCCM scripts that use -EncodedCommand purely to
+    avoid quoting issues, not for obfuscation.
+  - Scheduled compliance/reporting scripts run by known service accounts.

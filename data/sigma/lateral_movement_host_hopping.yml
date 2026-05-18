@@ -1,0 +1,24 @@
+id: SIGMA-AEGIS-0021
+title: Single Identity Active Across Multiple Hosts in a Short Window
+description: >
+  Correlation rule: flags a user identity observed (via AD logon or EDR
+  process activity) on three or more distinct hosts within a 10-minute
+  window, a classic lateral-movement / compromised-credential signature that
+  no single event can reveal on its own.
+status: experimental
+level: high
+logsource:
+  category: correlation
+detection:
+  condition: correlation
+correlation:
+  type: distinct_count
+  group_by: ["user"]
+  distinct_field: "host"
+  min_distinct: 3
+  window_seconds: 600
+technique_ids: [T1021, T1078]
+falsepositives:
+  - Roaming helpdesk/IT staff or automated configuration-management jobs that
+    legitimately touch many hosts under one service account in a short
+    period.

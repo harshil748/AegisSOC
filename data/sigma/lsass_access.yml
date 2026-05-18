@@ -1,0 +1,25 @@
+id: SIGMA-AEGIS-0003
+title: Suspicious Access or Dump of LSASS Process Memory
+description: >
+  Detects command lines and tool usage patterns consistent with dumping the
+  LSASS process for credential material (comsvcs.dll MiniDump, procdump,
+  Mimikatz sekurlsa module).
+status: stable
+level: critical
+logsource:
+  product: sysmon
+  category: process_creation
+detection:
+  selection:
+    command_line|contains:
+      - "comsvcs.dll"
+      - "minidump"
+      - "sekurlsa"
+      - "lsass.dmp"
+      - "procdump"
+      - "lsass_1.dmp"
+  condition: selection
+technique_ids: [T1003.001]
+falsepositives:
+  - Authorized crash-dump/forensic collection performed by EDR agents or
+    incident responders under an approved investigation ticket.

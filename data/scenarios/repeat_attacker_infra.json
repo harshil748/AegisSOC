@@ -1,0 +1,295 @@
+{
+  "scenario_id": "repeat_attacker_infra",
+  "name": "Repeat C2 Infrastructure Across Time (Graph Memory Benefit)",
+  "description": "Demonstrates the value of persistent graph/history memory. 46 days ago, host WKSTN-1223 (Raj Patel) beaconed to api.cloudsync-telemetry.com / 45.137.21.9 in incident INC-2026-0603, which was triaged and contained (host isolated, binary quarantined). Today, an unrelated user (Kevin Brooks, WKSTN-1298, different department, different initial lure) is lured into installing a trojanized 'CloudSync Agent' that beacons to the *same* C2 domain, now resolving to a sibling IP (45.137.21.14) in the same /28 netblock. A stateless, rule-only detector sees two unrelated low/medium alerts on unrelated hosts. A system with graph/entity memory recognizes the shared domain/infrastructure fingerprint across time and should escalate wave 2 with materially higher confidence and cite the historical case.",
+  "expected_severity": "high",
+  "expected_techniques": [
+    "T1566.001",
+    "T1204.002",
+    "T1105",
+    "T1071.001",
+    "T1583.001"
+  ],
+  "expected_min_risk": 0.7,
+  "is_attack": true,
+  "graph_memory_benefit": {
+    "shared_indicators": [
+      "api.cloudsync-telemetry.com",
+      "45.137.21.9",
+      "45.137.21.14"
+    ],
+    "historical_case_ref": "INC-2026-0603",
+    "expected_behavior": "Detection/graph-scoring layer should link wave 2 events to the wave 1 historical entity (Domain node for api.cloudsync-telemetry.com and its resolved_to IP neighborhood) and boost risk/confidence beyond what either wave's rule hits alone would produce, citing the prior incident as evidence."
+  },
+  "primary_entities": {
+    "users": [
+      "rpatel",
+      "kbrooks"
+    ],
+    "hosts": [
+      "WKSTN-1223",
+      "WKSTN-1298"
+    ],
+    "malicious_domains": [
+      "api.cloudsync-telemetry.com"
+    ],
+    "malicious_ips": [
+      "45.137.21.9",
+      "45.137.21.14"
+    ],
+    "hashes": [
+      "77aa66bb55cc44dd33ee22ff1100998877665544332211009988776655443311",
+      "88bb77cc66dd55ee44ff33aa22119900aabbccddeeff00112233445566778899"
+    ]
+  },
+  "events": [
+    {
+      "source": "zeek",
+      "timestamp": "2026-06-04T00:00:00.000Z",
+      "raw": {
+        "log_type": "dns",
+        "uid": "Crepeat0000001",
+        "id.orig_h": "10.20.30.33",
+        "id.resp_h": "10.20.1.10",
+        "query": "api.cloudsync-telemetry.com",
+        "qtype_name": "A",
+        "rcode_name": "NOERROR",
+        "answers": [
+          "45.137.21.9"
+        ],
+        "TTLs": [
+          120.0
+        ],
+        "host": "WKSTN-1223",
+        "user": "rpatel",
+        "wave": 1
+      }
+    },
+    {
+      "source": "edr",
+      "timestamp": "2026-06-04T00:01:00.000Z",
+      "raw": {
+        "agent_id": "edr-11223344wave1",
+        "host": "WKSTN-1223",
+        "user": "AEGISCORP\\rpatel",
+        "process_name": "update_helper.exe",
+        "pid": 3312,
+        "ppid": 2201,
+        "command_line": "C:\\Users\\rpatel\\AppData\\Roaming\\update_helper.exe --check-in",
+        "parent_process": "explorer.exe",
+        "sha256": "77aa66bb55cc44dd33ee22ff1100998877665544332211009988776655443311",
+        "signed": false,
+        "signer": null,
+        "reputation": "malicious",
+        "mitre_techniques": [
+          "T1071.001",
+          "T1105"
+        ],
+        "network_connections": [
+          {
+            "dst_ip": "45.137.21.9",
+            "dst_port": 443
+          }
+        ],
+        "wave": 1
+      }
+    },
+    {
+      "source": "suricata",
+      "timestamp": "2026-06-04T00:01:05.000Z",
+      "raw": {
+        "flow_id": 111222333444,
+        "src_ip": "10.20.30.33",
+        "src_port": 51500,
+        "dest_ip": "45.137.21.9",
+        "dest_port": 443,
+        "proto": "TCP",
+        "app_proto": "tls",
+        "alert": {
+          "action": "allowed",
+          "signature": "ET MALWARE Generic Trojan C2 Checkin via TLS SNI",
+          "signature_id": 2039944,
+          "category": "A Network Trojan was Detected",
+          "severity": 1
+        },
+        "wave": 1
+      }
+    },
+    {
+      "source": "zeek",
+      "timestamp": "2026-06-04T00:01:08.000Z",
+      "raw": {
+        "log_type": "conn",
+        "uid": "Crepeat0000002",
+        "id.orig_h": "10.20.30.33",
+        "id.resp_h": "45.137.21.9",
+        "id.orig_p": 51500,
+        "id.resp_p": 443,
+        "proto": "tcp",
+        "service": "ssl",
+        "duration": 0.8,
+        "orig_bytes": 2210,
+        "resp_bytes": 4110,
+        "conn_state": "SF",
+        "history": "ShADadFf",
+        "wave": 1
+      }
+    },
+    {
+      "source": "edr",
+      "timestamp": "2026-06-04T02:10:00.000Z",
+      "raw": {
+        "agent_id": "edr-11223344wave1",
+        "host": "WKSTN-1223",
+        "user": "AEGISCORP\\rpatel",
+        "process_name": "update_helper.exe",
+        "pid": 3312,
+        "ppid": 2201,
+        "command_line": "N/A - process terminated by EDR containment action",
+        "parent_process": "explorer.exe",
+        "sha256": "77aa66bb55cc44dd33ee22ff1100998877665544332211009988776655443311",
+        "signed": false,
+        "signer": null,
+        "reputation": "malicious",
+        "mitre_techniques": [
+          "T1071.001"
+        ],
+        "network_connections": [],
+        "note": "historical incident INC-2026-0603 was contained: host isolated, binary quarantined",
+        "wave": 1
+      }
+    },
+    {
+      "source": "zeek",
+      "timestamp": "2026-07-19T22:00:00.000Z",
+      "raw": {
+        "log_type": "dns",
+        "uid": "Crepeat0000010",
+        "id.orig_h": "10.20.40.48",
+        "id.resp_h": "10.20.1.10",
+        "query": "api.cloudsync-telemetry.com",
+        "qtype_name": "A",
+        "rcode_name": "NOERROR",
+        "answers": [
+          "45.137.21.14"
+        ],
+        "TTLs": [
+          120.0
+        ],
+        "host": "WKSTN-1298",
+        "user": "kbrooks",
+        "wave": 2
+      }
+    },
+    {
+      "source": "email",
+      "timestamp": "2026-07-19T21:35:00.000Z",
+      "raw": {
+        "message_id": "<sync-tool-promo-0720@mail-out.cloudsync-telemetry.com>",
+        "from": "updates@api.cloudsync-telemetry.com",
+        "to": "kevin.brooks@aegiscorp.com",
+        "subject": "CloudSync Desktop Agent - required update",
+        "attachments": [
+          {
+            "filename": "CloudSyncAgentSetup.exe",
+            "sha256": "88bb77cc66dd55ee44ff33aa22119900aabbccddeeff00112233445566778899",
+            "content_type": "application/x-msdownload"
+          }
+        ],
+        "urls": [
+          "https://api.cloudsync-telemetry.com/download/agent"
+        ],
+        "spf": "fail",
+        "dkim": "fail",
+        "dmarc": "fail",
+        "spam_score": 6.9,
+        "verdict": "phishing_suspected",
+        "wave": 2
+      }
+    },
+    {
+      "source": "edr",
+      "timestamp": "2026-07-19T22:01:00.000Z",
+      "raw": {
+        "agent_id": "edr-99887766wave2",
+        "host": "WKSTN-1298",
+        "user": "AEGISCORP\\kbrooks",
+        "process_name": "CloudSyncAgentSetup.exe",
+        "pid": 6650,
+        "ppid": 3301,
+        "command_line": "C:\\Users\\kbrooks\\Downloads\\CloudSyncAgentSetup.exe /silent",
+        "parent_process": "chrome.exe",
+        "sha256": "88bb77cc66dd55ee44ff33aa22119900aabbccddeeff00112233445566778899",
+        "signed": false,
+        "signer": null,
+        "reputation": "malicious",
+        "mitre_techniques": [
+          "T1204.002",
+          "T1105"
+        ],
+        "network_connections": [
+          {
+            "dst_ip": "45.137.21.14",
+            "dst_port": 443
+          }
+        ],
+        "wave": 2
+      }
+    },
+    {
+      "source": "zeek",
+      "timestamp": "2026-07-19T22:01:15.000Z",
+      "raw": {
+        "log_type": "conn",
+        "uid": "Crepeat0000011",
+        "id.orig_h": "10.20.40.48",
+        "id.resp_h": "45.137.21.14",
+        "id.orig_p": 52310,
+        "id.resp_p": 443,
+        "proto": "tcp",
+        "service": "ssl",
+        "duration": 1.1,
+        "orig_bytes": 2440,
+        "resp_bytes": 5310,
+        "conn_state": "SF",
+        "history": "ShADadFf",
+        "wave": 2
+      }
+    },
+    {
+      "source": "suricata",
+      "timestamp": "2026-07-19T22:01:17.000Z",
+      "raw": {
+        "flow_id": 555666777888,
+        "src_ip": "10.20.40.48",
+        "src_port": 52310,
+        "dest_ip": "45.137.21.14",
+        "dest_port": 443,
+        "proto": "TCP",
+        "app_proto": "tls",
+        "alert": {
+          "action": "allowed",
+          "signature": "ET MALWARE Generic Trojan C2 Checkin via TLS SNI",
+          "signature_id": 2039944,
+          "category": "A Network Trojan was Detected",
+          "severity": 1
+        },
+        "wave": 2
+      }
+    },
+    {
+      "source": "firewall_dns",
+      "timestamp": "2026-07-19T22:01:20.000Z",
+      "raw": {
+        "log_type": "dns_query",
+        "client_ip": "10.20.40.48",
+        "query": "api.cloudsync-telemetry.com",
+        "query_type": "A",
+        "resolved_ip": "45.137.21.14",
+        "response_code": "NOERROR",
+        "wave": 2,
+        "note": "same C2 domain observed in incident INC-2026-0603 46 days prior, now resolving to a sibling IP in the same /28"
+      }
+    }
+  ]
+}

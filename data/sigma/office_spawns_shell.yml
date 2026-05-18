@@ -1,0 +1,30 @@
+id: SIGMA-AEGIS-0002
+title: Office Application Spawning Command Interpreter or Script Host
+description: >
+  Detects Microsoft Office applications (Word/Excel/Outlook/PowerPoint)
+  spawning a shell, scripting engine, or LOLBin - the classic macro/OLE
+  execution step of a phishing attack chain.
+status: stable
+level: high
+logsource:
+  product: sysmon
+  category: process_creation
+detection:
+  selection:
+    parent_image|endswith:
+      - "winword.exe"
+      - "excel.exe"
+      - "outlook.exe"
+      - "powerpnt.exe"
+    image|endswith:
+      - "powershell.exe"
+      - "cmd.exe"
+      - "wscript.exe"
+      - "cscript.exe"
+      - "mshta.exe"
+      - "rundll32.exe"
+  condition: selection
+technique_ids: [T1566.001, T1204.002, T1059.001]
+falsepositives:
+  - Legitimate mail-merge, macro-driven reporting, or document-automation
+    add-ins (rare, should be allow-listed by hash/path).

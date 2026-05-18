@@ -1,0 +1,21 @@
+{
+  "hosts": {
+    "DC01": {"criticality": 1.0, "role": "domain_controller", "environment": "prod"},
+    "FIN-DB01": {"criticality": 0.95, "role": "finance_database", "environment": "prod"},
+    "FILESRV01": {"criticality": 0.8, "role": "file_server", "environment": "prod"},
+    "WEB-EDGE01": {"criticality": 0.75, "role": "public_web_edge", "environment": "prod"},
+    "K8S-NODE01": {"criticality": 0.7, "role": "kubernetes_node", "environment": "prod"},
+    "WKS-JDOE": {"criticality": 0.4, "role": "workstation", "environment": "corp"},
+    "WKS-ASMITH": {"criticality": 0.4, "role": "workstation", "environment": "corp"},
+    "WKS-MCHEN": {"criticality": 0.35, "role": "workstation", "environment": "corp"}
+  },
+  "users": {
+    "jdoe": {"criticality": 0.5, "title": "Finance Analyst", "department": "finance"},
+    "asmith": {"criticality": 0.4, "title": "Marketing Specialist", "department": "marketing"},
+    "mchen": {"criticality": 0.4, "title": "Support Engineer", "department": "support"},
+    "administrator": {"criticality": 1.0, "title": "Domain Admin", "department": "it"},
+    "svc-backup": {"criticality": 0.7, "title": "Service Account", "department": "it"}
+  },
+  "default_host_criticality": 0.3,
+  "default_user_criticality": 0.3
+}

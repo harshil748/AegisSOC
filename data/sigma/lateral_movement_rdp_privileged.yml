@@ -1,0 +1,20 @@
+id: SIGMA-AEGIS-0006
+title: Privileged Interactive Logon via RDP to Server Tier
+description: >
+  Detects an RDP (LogonType 10) interactive logon success, which combined
+  with a privileged account or an unusual source workstation is a common
+  lateral-movement pattern into servers.
+status: experimental
+level: medium
+logsource:
+  product: active_directory
+  category: authentication
+detection:
+  selection:
+    event_id: 4624
+    logon_type: 10
+  condition: selection
+technique_ids: [T1021.001]
+falsepositives:
+  - Scheduled remote-desktop-based administration by helpdesk/IT staff during
+    business hours from known jump hosts.

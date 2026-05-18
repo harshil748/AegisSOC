@@ -1,0 +1,21 @@
+id: SIGMA-AEGIS-0004
+title: Lateral Movement via PsExec-style Remote Service Execution
+description: >
+  Detects the service-install artifact (PSEXESVC) or command-line invocation
+  characteristic of PsExec-based remote code execution used for lateral
+  movement.
+status: stable
+level: high
+logsource:
+  product: sysmon
+  category: process_creation
+detection:
+  selection:
+    command_line|contains:
+      - "psexesvc"
+      - "psexec"
+  condition: selection
+technique_ids: [T1021.002, T1570]
+falsepositives:
+  - Legitimate, change-managed use of PsExec by IT/helpdesk for approved
+    remote administration tasks.

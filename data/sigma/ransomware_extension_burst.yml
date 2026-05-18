@@ -1,0 +1,24 @@
+id: SIGMA-AEGIS-0007
+title: Mass File Rename/Creation with Ransomware-style Extension
+description: >
+  Detects file-create events whose target filename carries a known
+  ransomware-style appended extension, indicating bulk encryption of a file
+  share or endpoint.
+status: stable
+level: critical
+logsource:
+  product: sysmon
+  category: file_event
+detection:
+  selection:
+    target_filename|contains:
+      - ".aegislock"
+      - ".locked"
+      - ".encrypted"
+      - ".crypt"
+      - ".aegis_locked"
+  condition: selection
+technique_ids: [T1486]
+falsepositives:
+  - An internal DRM/file-locking utility that coincidentally shares a similar
+    extension naming convention (verify against approved software list).

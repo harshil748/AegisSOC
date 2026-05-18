@@ -1,0 +1,22 @@
+id: SIGMA-AEGIS-0010
+title: Macro-Enabled Office Attachment Received from External Sender
+description: >
+  Detects delivery of a macro-enabled Office document (.docm/.xlsm/.pptm),
+  the most common initial-access payload container for phishing-driven
+  execution chains.
+status: stable
+level: medium
+logsource:
+  product: email
+  category: phishing
+detection:
+  selection:
+    attachment_name|endswith:
+      - ".docm"
+      - ".xlsm"
+      - ".pptm"
+  condition: selection
+technique_ids: [T1566.001, T1204.002]
+falsepositives:
+  - Business partners legitimately exchanging macro-enabled templates or
+    finance/accounting macro workbooks (rare in a well-governed environment).

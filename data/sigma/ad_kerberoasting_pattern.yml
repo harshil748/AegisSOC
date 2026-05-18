@@ -1,0 +1,20 @@
+id: SIGMA-AEGIS-0018
+title: Possible Kerberoasting - Service Ticket Request Pattern
+description: >
+  Detects Kerberos TGS requests for CIFS/service SPNs, which in volume or from
+  an unusual principal can indicate Kerberoasting or SPN enumeration prior to
+  lateral movement.
+status: experimental
+level: medium
+logsource:
+  product: active_directory
+  category: authentication
+detection:
+  selection:
+    event_id: 4769
+    service_name|contains: "cifs/"
+  condition: selection
+technique_ids: [T1558.003]
+falsepositives:
+  - Normal SMB/CIFS service-ticket issuance during routine file-share access;
+    correlate with request volume per principal before escalating.

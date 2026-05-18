@@ -1,0 +1,20 @@
+id: SIGMA-AEGIS-0008
+title: Ransom Note File Dropped on Disk
+description: >
+  Detects creation of a file whose name matches common ransom-note naming
+  conventions, typically dropped immediately after a mass-encryption burst.
+status: stable
+level: critical
+logsource:
+  product: sysmon
+  category: file_event
+detection:
+  selection:
+    target_filename|contains:
+      - "README_RECOVER"
+      - "HOW_TO_DECRYPT"
+      - "DECRYPT_INSTRUCTIONS"
+      - "HowToDecrypt"
+  condition: selection
+technique_ids: [T1486, T1491.001]
+falsepositives: []

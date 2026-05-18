@@ -1,0 +1,23 @@
+id: SIGMA-AEGIS-0012
+title: IAM Privilege Escalation via Policy Attachment or Access-Key Creation
+description: >
+  Detects IAM mutation events commonly abused to escalate privilege or
+  establish persistent programmatic access (AttachUserPolicy, PutUserPolicy,
+  CreateAccessKey, AddUserToGroup).
+status: experimental
+level: high
+logsource:
+  product: cloudtrail
+  category: iam
+detection:
+  selection:
+    event_name:
+      - AttachUserPolicy
+      - PutUserPolicy
+      - CreateAccessKey
+      - AddUserToGroup
+  condition: selection
+technique_ids: [T1098, T1078.004]
+falsepositives:
+  - Legitimate IAM administration performed by the cloud platform team during
+    onboarding/offboarding; correlate with change-ticket records.

@@ -1,0 +1,20 @@
+id: SIGMA-AEGIS-0020
+title: Sensitive Privilege Assignment (SeDebugPrivilege) Outside Server Tier
+description: >
+  Detects assignment of SeDebugPrivilege (commonly abused to read LSASS
+  memory) in a logon session, a strong precursor signal to credential
+  dumping when seen on a workstation rather than a server/DC.
+status: experimental
+level: high
+logsource:
+  product: active_directory
+  category: authentication
+detection:
+  selection:
+    event_id: 4672
+    privilege_list|contains: "SeDebugPrivilege"
+  condition: selection
+technique_ids: [T1078, T1134]
+falsepositives:
+  - Approved debugging/troubleshooting sessions run by platform engineering
+    under a documented change ticket.

@@ -1,0 +1,23 @@
+id: SIGMA-AEGIS-0019
+title: Reconnection to Previously Observed Malicious Infrastructure
+description: >
+  Flags DNS queries or connections to domains that MISP/threat-intel has
+  already tagged as C2 infrastructure from a prior incident, even if the
+  resolved IP has since rotated within the same netblock. Intended to be
+  paired with graph/entity memory rather than treated as a one-shot rule.
+status: stable
+level: high
+logsource:
+  product: zeek
+  category: dns
+detection:
+  selection:
+    dns_query:
+      - "api.cloudsync-telemetry.com"
+      - "secure-office365-update.com"
+      - "cdn-office-update-cache.net"
+  condition: selection
+technique_ids: [T1583.001, T1071.001]
+falsepositives:
+  - Sinkholed or seized domains that continue to receive stray legacy traffic
+    after takedown (verify sinkhole status in intel feed).

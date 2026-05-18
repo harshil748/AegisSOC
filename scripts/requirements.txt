@@ -1,0 +1,9 @@
+# Dependencies for the data-generation / demo / evaluation scripts in this
+# directory. Install with: pip install -r scripts/requirements.txt
+#
+# Core services in services/*.py bring their own dependency sets (see
+# packages/common/pyproject.toml); these scripts are intentionally
+# lightweight and only need stdlib plus the two packages below.
+
+pyyaml>=6.0
+requests>=2.31

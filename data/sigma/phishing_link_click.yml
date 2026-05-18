@@ -1,0 +1,22 @@
+id: SIGMA-AEGIS-0009
+title: Phishing Email with Failed Authentication Delivered and Not Cleared
+description: >
+  Detects inbound email that fails SPF and DMARC alignment and was not
+  subsequently marked clean by the mail-security verdict, indicating a likely
+  spoofed/phishing lure that reached the inbox.
+status: stable
+level: high
+logsource:
+  product: email
+  category: phishing
+detection:
+  selection:
+    spf: fail
+    dmarc: fail
+  filter_clean:
+    verdict: clean
+  condition: selection and not filter_clean
+technique_ids: [T1566.001, T1566.002]
+falsepositives:
+  - Legitimate third-party senders (vendors, partners) with misconfigured SPF
+    or DMARC records but otherwise benign content.

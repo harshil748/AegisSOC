@@ -1,0 +1,193 @@
+{
+  "scenario_id": "benign_admin_false_positive",
+  "name": "Benign Scheduled Admin PowerShell (Explainable False Positive)",
+  "description": "A routine, change-managed monthly patch-compliance scheduled task on IT admin James Chen's workstation invokes a Base64-encoded PowerShell command via the SCCM service account. This superficially matches 'suspicious encoded PowerShell' and 'Office/Task Scheduler spawning PowerShell' detection patterns, but every supporting signal is benign: the binary and script are Microsoft-signed, the parent is Task Scheduler (not an Office app or browser), the account is a known service account with a matching historical pattern, the network destination is an internal SCCM distribution point, there is no credential access, no lateral movement, and no external C2 contact. Expected outcome: rules may fire, but the ensemble/graph/LLM layer should down-weight and explain this as a false positive.",
+  "expected_severity": "low",
+  "expected_techniques": [
+    "T1059.001"
+  ],
+  "expected_min_risk": 0.0,
+  "expected_max_risk": 0.35,
+  "is_attack": false,
+  "primary_entities": {
+    "users": [
+      "jchen",
+      "svc-sccm"
+    ],
+    "hosts": [
+      "WKSTN-1188",
+      "SRV-APP01"
+    ],
+    "malicious_domains": [],
+    "malicious_ips": [],
+    "hashes": [
+      "1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80"
+    ]
+  },
+  "false_positive_rationale": [
+    "PowerShell binary and payload are Microsoft-signed with known-good reputation.",
+    "Parent process chain is Task Scheduler -> SCCM client, not Office/browser -> shell.",
+    "Encoded command decodes to a benign, non-obfuscated cmdlet name (length-encoding only).",
+    "Executing account is a documented service account (svc-sccm) with a recurring nightly schedule.",
+    "All network destinations are internal, known-asset SCCM infrastructure; no external/C2 contact.",
+    "No credential access, no lateral movement, no data staging or encryption follows."
+  ],
+  "events": [
+    {
+      "source": "ad_auth",
+      "timestamp": "2026-07-15T02:00:00.000Z",
+      "raw": {
+        "EventID": 4624,
+        "Computer": "WKSTN-1188.aegiscorp.local",
+        "TargetUserName": "jchen",
+        "TargetDomainName": "AEGISCORP",
+        "WorkstationName": "WKSTN-1188",
+        "IpAddress": "10.20.50.14",
+        "LogonType": 2,
+        "note": "interactive logon, badge+VPN confirmed for on-call patch window"
+      }
+    },
+    {
+      "source": "sysmon",
+      "timestamp": "2026-07-15T02:01:05.000Z",
+      "raw": {
+        "EventID": 1,
+        "Computer": "WKSTN-1188.aegiscorp.local",
+        "User": "AEGISCORP\\jchen",
+        "Image": "C:\\Windows\\System32\\taskeng.exe",
+        "CommandLine": "taskeng.exe",
+        "ParentImage": "C:\\Windows\\System32\\svchost.exe",
+        "ParentCommandLine": "svchost.exe -k netsvcs",
+        "ProcessId": 4410,
+        "ParentProcessId": 812,
+        "note": "scheduled task 'Monthly-Patch-Compliance-Scan' fires from Task Scheduler"
+      }
+    },
+    {
+      "source": "sysmon",
+      "timestamp": "2026-07-15T02:01:08.000Z",
+      "raw": {
+        "EventID": 1,
+        "Computer": "WKSTN-1188.aegiscorp.local",
+        "User": "AEGISCORP\\svc-sccm",
+        "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "CommandLine": "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand SQBuAHYAbwBrAGUALQBTAEMAQwBNAFAAYQB0AGMAaABDAG8AbQBwAGwAaQBhAG4AYwBlAFMAYwBhAG4A",
+        "ParentImage": "C:\\Windows\\System32\\taskeng.exe",
+        "ParentCommandLine": "taskeng.exe",
+        "ProcessId": 4488,
+        "ParentProcessId": 4410,
+        "Hashes": "SHA256=1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80",
+        "IntegrityLevel": "System",
+        "note": "signed SCCM client script invokes Invoke-SCCMPatchComplianceScan; encoded for length only, not obfuscation"
+      }
+    },
+    {
+      "source": "edr",
+      "timestamp": "2026-07-15T02:01:09.000Z",
+      "raw": {
+        "agent_id": "edr-00aa11bb22cc",
+        "host": "WKSTN-1188",
+        "user": "AEGISCORP\\svc-sccm",
+        "process_name": "powershell.exe",
+        "pid": 4488,
+        "ppid": 4410,
+        "command_line": "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand SQBuAHYAbwBrAGUALQBTAEMAQwBNAFAAYQB0AGMAaABDAG8AbQBwAGwAaQBhAG4AYwBlAFMAYwBhAG4A",
+        "parent_process": "taskeng.exe",
+        "sha256": "1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f80",
+        "signed": true,
+        "signer": "Microsoft Corporation",
+        "reputation": "known_good",
+        "mitre_techniques": [],
+        "network_connections": [
+          {
+            "dst_ip": "10.20.1.22",
+            "dst_port": 443
+          }
+        ]
+      }
+    },
+    {
+      "source": "zeek",
+      "timestamp": "2026-07-15T02:01:12.000Z",
+      "raw": {
+        "log_type": "conn",
+        "uid": "Cbenign0000001",
+        "id.orig_h": "10.20.50.14",
+        "id.resp_h": "10.20.1.22",
+        "id.orig_p": 52210,
+        "id.resp_p": 443,
+        "proto": "tcp",
+        "service": "ssl",
+        "duration": 2.1,
+        "orig_bytes": 3120,
+        "resp_bytes": 88210,
+        "conn_state": "SF",
+        "history": "ShADadFf",
+        "note": "internal management-plane connection to SCCM distribution point, known asset pair"
+      }
+    },
+    {
+      "source": "sysmon",
+      "timestamp": "2026-07-15T02:01:40.000Z",
+      "raw": {
+        "EventID": 1,
+        "Computer": "WKSTN-1188.aegiscorp.local",
+        "User": "AEGISCORP\\svc-sccm",
+        "Image": "C:\\Windows\\System32\\cmd.exe",
+        "CommandLine": "cmd.exe /c wusa.exe C:\\Windows\\CCM\\Cache\\KB5040001.msu /quiet /norestart",
+        "ParentImage": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "ParentCommandLine": "powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand SQBuAHYAbwBrAGUALQBTAEMAQwBNAFAAYQB0AGMAaABDAG8AbQBwAGwAaQBhAG4AYwBlAFMAYwBhAG4A",
+        "ProcessId": 4520,
+        "ParentProcessId": 4488,
+        "note": "applies a legitimate signed Windows update package pushed by SCCM"
+      }
+    },
+    {
+      "source": "ad_auth",
+      "timestamp": "2026-07-15T02:03:00.000Z",
+      "raw": {
+        "EventID": 4624,
+        "Computer": "SRV-APP01.aegiscorp.local",
+        "TargetUserName": "svc-sccm",
+        "TargetDomainName": "AEGISCORP",
+        "WorkstationName": "WKSTN-1188",
+        "IpAddress": "10.20.50.14",
+        "LogonType": 3,
+        "note": "service-account network logon consistent with nightly patch cycle history"
+      }
+    },
+    {
+      "source": "sysmon",
+      "timestamp": "2026-07-15T02:04:00.000Z",
+      "raw": {
+        "EventID": 1,
+        "Computer": "WKSTN-1188.aegiscorp.local",
+        "User": "AEGISCORP\\jchen",
+        "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "CommandLine": "powershell.exe -File C:\\IT\\Scripts\\Get-PatchComplianceReport.ps1 -Site ALL",
+        "ParentImage": "C:\\Windows\\explorer.exe",
+        "ParentCommandLine": "C:\\Windows\\explorer.exe",
+        "ProcessId": 4610,
+        "ParentProcessId": 4102,
+        "note": "admin manually runs an internally version-controlled reporting script, plain (not encoded) command line"
+      }
+    },
+    {
+      "source": "email",
+      "timestamp": "2026-07-15T08:10:00.000Z",
+      "raw": {
+        "message_id": "<sccm-report-0715@mail.aegiscorp.com>",
+        "from": "james.chen@aegiscorp.com",
+        "to": "it-ops@aegiscorp.com",
+        "subject": "Monthly patch compliance scan completed - 98.7% compliant",
+        "attachments": [],
+        "urls": [],
+        "spf": "pass",
+        "dkim": "pass",
+        "dmarc": "pass",
+        "spam_score": 0.1,
+        "verdict": "clean"
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+id: SIGMA-AEGIS-0013
+title: Possible DNS Tunneling - Abnormally Long DNS Query Name
+description: >
+  Heuristic for DNS tunneling / C2-over-DNS: flags queries whose fully
+  qualified name exceeds a length threshold typical of encoded data smuggled
+  in subdomain labels. Structural heuristic, not indicator-based.
+status: experimental
+level: medium
+logsource:
+  product: zeek
+  category: dns
+detection:
+  selection:
+    zeek_log_type: dns
+    dns_query_length|gt: 40
+  condition: selection
+technique_ids: [T1071.004, T1568]
+falsepositives:
+  - Legitimate CDN/SaaS vendors that use long randomized subdomain or CNAME
+    routing labels for traffic steering.
