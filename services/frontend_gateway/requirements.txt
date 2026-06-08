@@ -1,0 +1,17 @@
+fastapi>=0.111
+uvicorn[standard]>=0.30
+pydantic>=2.6
+prometheus-client>=0.20
+httpx>=0.27
+
+# --- Sync-mode in-process demo pipeline (gateway_core/inprocess.py) ---
+# The gateway imports every sibling service's <name>_core package directly
+# and calls it in-process when AEGIS_SYNC_MODE=true (see
+# gateway_core/demo_pipeline.py and gateway_core/reads.py), so it needs each
+# sibling package's non-aegis_common third-party dependencies too. Most of
+# aegis_common's own deps (sqlalchemy, aiosqlite, asyncpg, pyjwt, bcrypt,
+# pydantic-settings, python-dateutil, httpx) are already pulled in
+# transitively by `pip install /app/packages/common` below.
+numpy>=1.26          # detection_core (graph/ML scorer), policy_core (bandit)
+PyYAML>=6.0           # detection_core (Sigma rule loading)
+openai>=1.30          # triage_core (live LLM mode; unused/lazy in mock mode)
