@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aegis-graph-builder
+  namespace: aegissoc
+  labels:
+    app: aegis-graph-builder
+    app.kubernetes.io/part-of: aegissoc
+    app.kubernetes.io/component: graph_builder
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aegis-graph-builder
+  template:
+    metadata:
+      labels:
+        app: aegis-graph-builder
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8004"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: graph-builder
+          image: ghcr.io/aegissoc/graph_builder:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8004
+              name: http
+          envFrom:
+            - configMapRef:
+                name: aegis-config
+            - secretRef:
+                name: aegis-secrets
+          env:
+            - name: SERVICE_PORT
+              value: "8004"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8004
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8004
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "192Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      # TODO: add topologySpreadConstraints / podAntiAffinity across zones at scale.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aegis-graph-builder
+  namespace: aegissoc
+  labels:
+    app: aegis-graph-builder
+spec:
+  selector:
+    app: aegis-graph-builder
+  ports:
+    - name: http
+      port: 8004
+      targetPort: 8004
+  type: ClusterIP

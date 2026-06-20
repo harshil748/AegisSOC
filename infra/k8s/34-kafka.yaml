@@ -1,0 +1,69 @@
+# Single-broker Redpanda for dev/staging (Kafka API-compatible). Production:
+# a 3+ broker Redpanda/Kafka cluster (Strimzi operator if using upstream
+# Kafka) with per-topic partition counts sized for 100M logs/day — see
+# docs/SCALABILITY.md "partitioning, consumer groups".
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aegis-kafka-data
+  namespace: aegissoc
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aegis-kafka
+  namespace: aegissoc
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: aegis-kafka }
+  template:
+    metadata:
+      labels: { app: aegis-kafka }
+    spec:
+      containers:
+        - name: redpanda
+          image: redpandadata/redpanda:v24.2.7
+          args:
+            - redpanda
+            - start
+            - --smp=1
+            - --memory=2G
+            - --overprovisioned
+            - --node-id=0
+            - --check=false
+            - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+            - --advertise-kafka-addr=PLAINTEXT://aegis-kafka:9092
+          ports:
+            - { containerPort: 9092, name: kafka }
+            - { containerPort: 9644, name: admin }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/redpanda/data
+          readinessProbe:
+            exec: { command: ["rpk", "cluster", "health", "--exit-when-healthy"] }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "500m", memory: "2Gi" }
+            limits: { cpu: "2", memory: "4Gi" }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: aegis-kafka-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aegis-kafka
+  namespace: aegissoc
+spec:
+  selector: { app: aegis-kafka }
+  ports:
+    - { name: kafka, port: 9092, targetPort: 9092 }
+    - { name: admin, port: 9644, targetPort: 9644 }

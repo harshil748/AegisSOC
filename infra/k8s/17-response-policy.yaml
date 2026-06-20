@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aegis-response-policy
+  namespace: aegissoc
+  labels:
+    app: aegis-response-policy
+    app.kubernetes.io/part-of: aegissoc
+    app.kubernetes.io/component: response_policy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aegis-response-policy
+  template:
+    metadata:
+      labels:
+        app: aegis-response-policy
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8008"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: response-policy
+          image: ghcr.io/aegissoc/response_policy:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8008
+              name: http
+          envFrom:
+            - configMapRef:
+                name: aegis-config
+            - secretRef:
+                name: aegis-secrets
+          env:
+            - name: SERVICE_PORT
+              value: "8008"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8008
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8008
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "192Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      # TODO: add topologySpreadConstraints / podAntiAffinity across zones at scale.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aegis-response-policy
+  namespace: aegissoc
+  labels:
+    app: aegis-response-policy
+spec:
+  selector:
+    app: aegis-response-policy
+  ports:
+    - name: http
+      port: 8008
+      targetPort: 8008
+  type: ClusterIP

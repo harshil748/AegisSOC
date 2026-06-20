@@ -1,0 +1,59 @@
+# Single-node OpenSearch for dev/staging. Production: a multi-node cluster
+# with dedicated hot/warm tiers (see docs/SCALABILITY.md "search tiers") —
+# hot tier for the last 7-30 days of alerts/cases, warm/cold (ISM policies
+# to S3-backed snapshots) for long-tail investigation and compliance.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aegis-opensearch-data
+  namespace: aegissoc
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 30Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aegis-opensearch
+  namespace: aegissoc
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: aegis-opensearch }
+  template:
+    metadata:
+      labels: { app: aegis-opensearch }
+    spec:
+      containers:
+        - name: opensearch
+          image: opensearchproject/opensearch:2.16.0
+          ports: [{ containerPort: 9200 }]
+          env:
+            - { name: discovery.type, value: single-node }
+            - { name: DISABLE_SECURITY_PLUGIN, value: "true" }
+            - { name: OPENSEARCH_JAVA_OPTS, value: "-Xms1g -Xmx1g" }
+          volumeMounts:
+            - name: data
+              mountPath: /usr/share/opensearch/data
+          readinessProbe:
+            httpGet: { path: /_cluster/health, port: 9200 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "500m", memory: "1.5Gi" }
+            limits: { cpu: "2", memory: "3Gi" }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: aegis-opensearch-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aegis-opensearch
+  namespace: aegissoc
+spec:
+  selector: { app: aegis-opensearch }
+  ports: [{ port: 9200, targetPort: 9200 }]

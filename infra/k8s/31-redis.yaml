@@ -1,0 +1,35 @@
+# Production: replace with a managed Redis (ElastiCache/Memorystore) or a
+# Redis Cluster (via the Bitnami/Redis Operator) once cache traffic grows
+# past a single node — see docs/SCALABILITY.md.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aegis-redis
+  namespace: aegissoc
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: aegis-redis }
+  template:
+    metadata:
+      labels: { app: aegis-redis }
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          args: ["redis-server", "--save", "60", "1"]
+          ports: [{ containerPort: 6379 }]
+          readinessProbe:
+            exec: { command: ["redis-cli", "ping"] }
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits: { cpu: "500m", memory: "512Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aegis-redis
+  namespace: aegissoc
+spec:
+  selector: { app: aegis-redis }
+  ports: [{ port: 6379, targetPort: 6379 }]

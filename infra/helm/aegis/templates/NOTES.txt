@@ -1,0 +1,27 @@
+AegisSOC has been deployed to namespace "{{ .Values.namespace }}".
+
+1. Check rollout status:
+   kubectl -n {{ .Values.namespace }} get pods
+
+2. If dependencies.* are enabled, wait for postgres/neo4j/opensearch/kafka
+   to report Ready before backend services pass their readiness probes.
+
+3. Access the UI:
+   {{- if .Values.ingress.enabled }}
+   https://{{ .Values.ingress.host }}
+   {{- else }}
+   kubectl -n {{ .Values.namespace }} port-forward svc/aegis-frontend {{ .Values.frontend.servicePort }}:{{ .Values.frontend.servicePort }}
+   {{- end }}
+
+4. Secrets: this release was installed with secrets.create={{ .Values.secrets.create }}.
+   {{- if .Values.secrets.create }}
+   WARNING: static Secret rendered from values.yaml — fine for a local
+   kind/minikube smoke test, NOT for production. Switch to an external
+   secret manager before deploying to a real cluster.
+   {{- else }}
+   Ensure an `aegis-secrets` Secret already exists in {{ .Values.namespace }}.
+   {{- end }}
+
+See docs/SCALABILITY.md for the path from this MVP topology to a
+production-scale deployment (partitioning, consumer groups, Neo4j
+clustering, search tiers, LLM cost decoupling).

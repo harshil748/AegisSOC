@@ -1,0 +1,131 @@
+# Default values for the aegis Helm chart.
+# Override per environment with -f values-staging.yaml / -f values-prod.yaml
+# or --set. This is intentionally a thin wrapper: each entry under
+# `services` renders one Deployment + Service via templates/service-app.yaml.
+
+nameOverride: ""
+namespace: aegissoc
+
+image:
+  registry: ghcr.io/aegissoc
+  tag: latest
+  pullPolicy: IfNotPresent
+
+global:
+  environment: production
+  tenantId: default
+  logLevel: INFO
+  syncMode: async          # AEGIS_SYNC_MODE: async|sync
+  llmEnabled: true
+  llmModel: gpt-4o-mini
+  llmMaxEvidenceItems: 40
+  corsOrigins: "https://aegissoc.example.com"
+
+# Secrets are expected to be provisioned out-of-band (Vault / External
+# Secrets Operator / sealed-secrets) in real deployments. Setting
+# `secrets.create=true` renders a plain Secret from the values below —
+# convenient for local kind/minikube smoke tests, NOT for production.
+secrets:
+  create: false
+  postgresPassword: "CHANGE_ME"
+  postgresDsn: "postgresql+asyncpg://aegis:CHANGE_ME@aegis-postgres:5432/aegis"
+  neo4jPassword: "CHANGE_ME"
+  neo4jAuth: "neo4j/CHANGE_ME"
+  jwtSecret: "CHANGE_ME"
+  openaiApiKey: ""
+  grafanaAdminPassword: "CHANGE_ME"
+
+# One entry per backend application service. `name` must match the
+# Dockerfile/service directory name under services/<name>.
+services:
+  ingestion:
+    port: 8001
+    replicas: 2
+    autoscale: true
+    resources: { requests: { cpu: 100m, memory: 192Mi }, limits: { cpu: 500m, memory: 512Mi } }
+  normalization:
+    port: 8002
+    replicas: 2
+    autoscale: true
+    resources: { requests: { cpu: 100m, memory: 192Mi }, limits: { cpu: 500m, memory: 512Mi } }
+  enrichment:
+    port: 8003
+    replicas: 2
+    autoscale: false
+    resources: { requests: { cpu: 100m, memory: 192Mi }, limits: { cpu: 500m, memory: 512Mi } }
+  graph_builder:
+    port: 8004
+    replicas: 2
+    autoscale: false
+    resources: { requests: { cpu: 150m, memory: 256Mi }, limits: { cpu: 750m, memory: 768Mi } }
+  detection:
+    port: 8005
+    replicas: 2
+    autoscale: true
+    resources: { requests: { cpu: 150m, memory: 256Mi }, limits: { cpu: 750m, memory: 768Mi } }
+  case_management:
+    port: 8006
+    replicas: 2
+    autoscale: false
+    resources: { requests: { cpu: 100m, memory: 192Mi }, limits: { cpu: 500m, memory: 512Mi } }
+  llm_triage:
+    port: 8007
+    replicas: 2
+    autoscale: false
+    resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
+  response_policy:
+    port: 8008
+    replicas: 2
+    autoscale: false
+    resources: { requests: { cpu: 100m, memory: 192Mi }, limits: { cpu: 500m, memory: 512Mi } }
+  approval:
+    port: 8009
+    replicas: 2
+    autoscale: false
+    resources: { requests: { cpu: 100m, memory: 192Mi }, limits: { cpu: 500m, memory: 512Mi } }
+  audit:
+    port: 8010
+    replicas: 2
+    autoscale: false
+    resources: { requests: { cpu: 100m, memory: 192Mi }, limits: { cpu: 500m, memory: 512Mi } }
+  frontend_gateway:
+    port: 8080
+    replicas: 2
+    autoscale: false
+    resources: { requests: { cpu: 100m, memory: 192Mi }, limits: { cpu: 500m, memory: 512Mi } }
+
+autoscaling:
+  minReplicas: 2
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 65
+
+frontend:
+  enabled: true
+  # servicePort is what other in-cluster/ingress traffic targets; containerPort
+  # is nginx's listen port inside the image (see frontend/Dockerfile).
+  servicePort: 3000
+  containerPort: 80
+  replicas: 2
+  resources: { requests: { cpu: 50m, memory: 64Mi }, limits: { cpu: 250m, memory: 128Mi } }
+
+ingress:
+  enabled: true
+  className: nginx
+  host: aegissoc.example.com
+  tlsSecretName: aegissoc-tls
+  clusterIssuer: letsencrypt-prod
+
+# Stateful dependencies. Set to false and point urls at externally managed
+# services (RDS, Aura, managed OpenSearch, MSK/Confluent Cloud) for prod —
+# see docs/SCALABILITY.md.
+dependencies:
+  postgres: { enabled: true, storage: 20Gi }
+  redis: { enabled: true }
+  neo4j: { enabled: true, storage: 20Gi }
+  opensearch: { enabled: true, storage: 30Gi }
+  kafka: { enabled: true, storage: 50Gi }
+
+observability:
+  prometheus: { enabled: true }
+  grafana: { enabled: true }
+  otelCollector: { enabled: false }

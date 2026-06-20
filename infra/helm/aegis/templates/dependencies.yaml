@@ -1,0 +1,188 @@
+{{- if .Values.dependencies.postgres.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: aegis-postgres-data, namespace: {{ .Values.namespace }} }
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources: { requests: { storage: {{ .Values.dependencies.postgres.storage }} } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: aegis-postgres, namespace: {{ .Values.namespace }} }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: aegis-postgres } }
+  template:
+    metadata: { labels: { app: aegis-postgres } }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports: [{ containerPort: 5432 }]
+          env:
+            - { name: POSTGRES_USER, value: aegis }
+            - { name: POSTGRES_DB, value: aegis }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: aegis-secrets, key: POSTGRES_PASSWORD } }
+          volumeMounts: [{ name: data, mountPath: /var/lib/postgresql/data }]
+      volumes: [{ name: data, persistentVolumeClaim: { claimName: aegis-postgres-data } }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: aegis-postgres, namespace: {{ .Values.namespace }} }
+spec:
+  selector: { app: aegis-postgres }
+  ports: [{ port: 5432, targetPort: 5432 }]
+{{- end }}
+
+{{- if .Values.dependencies.redis.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: aegis-redis, namespace: {{ .Values.namespace }} }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: aegis-redis } }
+  template:
+    metadata: { labels: { app: aegis-redis } }
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          ports: [{ containerPort: 6379 }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: aegis-redis, namespace: {{ .Values.namespace }} }
+spec:
+  selector: { app: aegis-redis }
+  ports: [{ port: 6379, targetPort: 6379 }]
+{{- end }}
+
+{{- if .Values.dependencies.neo4j.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: aegis-neo4j-data, namespace: {{ .Values.namespace }} }
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources: { requests: { storage: {{ .Values.dependencies.neo4j.storage }} } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: aegis-neo4j, namespace: {{ .Values.namespace }} }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: aegis-neo4j } }
+  template:
+    metadata: { labels: { app: aegis-neo4j } }
+    spec:
+      containers:
+        - name: neo4j
+          image: neo4j:5.23-community
+          ports:
+            - { containerPort: 7474, name: http }
+            - { containerPort: 7687, name: bolt }
+          env:
+            - name: NEO4J_AUTH
+              valueFrom: { secretKeyRef: { name: aegis-secrets, key: NEO4J_AUTH } }
+            - { name: NEO4J_PLUGINS, value: '["apoc"]' }
+          volumeMounts: [{ name: data, mountPath: /data }]
+      volumes: [{ name: data, persistentVolumeClaim: { claimName: aegis-neo4j-data } }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: aegis-neo4j, namespace: {{ .Values.namespace }} }
+spec:
+  selector: { app: aegis-neo4j }
+  ports:
+    - { name: http, port: 7474, targetPort: 7474 }
+    - { name: bolt, port: 7687, targetPort: 7687 }
+{{- end }}
+
+{{- if .Values.dependencies.opensearch.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: aegis-opensearch-data, namespace: {{ .Values.namespace }} }
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources: { requests: { storage: {{ .Values.dependencies.opensearch.storage }} } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: aegis-opensearch, namespace: {{ .Values.namespace }} }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: aegis-opensearch } }
+  template:
+    metadata: { labels: { app: aegis-opensearch } }
+    spec:
+      containers:
+        - name: opensearch
+          image: opensearchproject/opensearch:2.16.0
+          ports: [{ containerPort: 9200 }]
+          env:
+            - { name: discovery.type, value: single-node }
+            - { name: DISABLE_SECURITY_PLUGIN, value: "true" }
+          volumeMounts: [{ name: data, mountPath: /usr/share/opensearch/data }]
+      volumes: [{ name: data, persistentVolumeClaim: { claimName: aegis-opensearch-data } }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: aegis-opensearch, namespace: {{ .Values.namespace }} }
+spec:
+  selector: { app: aegis-opensearch }
+  ports: [{ port: 9200, targetPort: 9200 }]
+{{- end }}
+
+{{- if .Values.dependencies.kafka.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: aegis-kafka-data, namespace: {{ .Values.namespace }} }
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources: { requests: { storage: {{ .Values.dependencies.kafka.storage }} } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: aegis-kafka, namespace: {{ .Values.namespace }} }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: aegis-kafka } }
+  template:
+    metadata: { labels: { app: aegis-kafka } }
+    spec:
+      containers:
+        - name: redpanda
+          image: redpandadata/redpanda:v24.2.7
+          args:
+            - redpanda
+            - start
+            - --smp=1
+            - --memory=2G
+            - --overprovisioned
+            - --node-id=0
+            - --check=false
+            - --kafka-addr=PLAINTEXT://0.0.0.0:9092
+            - --advertise-kafka-addr=PLAINTEXT://aegis-kafka:9092
+          ports:
+            - { containerPort: 9092, name: kafka }
+            - { containerPort: 9644, name: admin }
+          volumeMounts: [{ name: data, mountPath: /var/lib/redpanda/data }]
+      volumes: [{ name: data, persistentVolumeClaim: { claimName: aegis-kafka-data } }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: aegis-kafka, namespace: {{ .Values.namespace }} }
+spec:
+  selector: { app: aegis-kafka }
+  ports:
+    - { name: kafka, port: 9092, targetPort: 9092 }
+    - { name: admin, port: 9644, targetPort: 9644 }
+{{- end }}

@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aegis-approval
+  namespace: aegissoc
+  labels:
+    app: aegis-approval
+    app.kubernetes.io/part-of: aegissoc
+    app.kubernetes.io/component: approval
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aegis-approval
+  template:
+    metadata:
+      labels:
+        app: aegis-approval
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8009"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: approval
+          image: ghcr.io/aegissoc/approval:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8009
+              name: http
+          envFrom:
+            - configMapRef:
+                name: aegis-config
+            - secretRef:
+                name: aegis-secrets
+          env:
+            - name: SERVICE_PORT
+              value: "8009"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8009
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8009
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "192Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      # TODO: add topologySpreadConstraints / podAntiAffinity across zones at scale.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aegis-approval
+  namespace: aegissoc
+  labels:
+    app: aegis-approval
+spec:
+  selector:
+    app: aegis-approval
+  ports:
+    - name: http
+      port: 8009
+      targetPort: 8009
+  type: ClusterIP

@@ -1,0 +1,77 @@
+{
+  "title": "AegisSOC - Kafka / Redpanda Lag",
+  "uid": "aegis-kafka-lag",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "15s",
+  "tags": ["aegissoc", "kafka", "lag"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Graph builder consumer lag (aegis.enriched.events)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "aegis_graph_builder_consumer_lag",
+          "legendFormat": "graph_builder lag",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Redpanda broker CPU / IO (public_metrics)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "rate(vectorized_reactor_utilization_percent[5m])",
+          "legendFormat": "reactor utilization",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Ingestion vs. normalization throughput (events/sec)",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(aegis_ingestion_events_total[1m]))",
+          "legendFormat": "ingested/sec",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(aegis_normalization_events_total[1m]))",
+          "legendFormat": "normalized/sec",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Rejected / DLQ events (5m)",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum(increase(aegis_ingestion_events_rejected_total[5m]))",
+          "legendFormat": "rejected",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

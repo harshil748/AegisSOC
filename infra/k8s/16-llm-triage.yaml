@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aegis-llm-triage
+  namespace: aegissoc
+  labels:
+    app: aegis-llm-triage
+    app.kubernetes.io/part-of: aegissoc
+    app.kubernetes.io/component: llm_triage
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aegis-llm-triage
+  template:
+    metadata:
+      labels:
+        app: aegis-llm-triage
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8007"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: llm-triage
+          image: ghcr.io/aegissoc/llm_triage:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8007
+              name: http
+          envFrom:
+            - configMapRef:
+                name: aegis-config
+            - secretRef:
+                name: aegis-secrets
+          env:
+            - name: SERVICE_PORT
+              value: "8007"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8007
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8007
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "192Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      # TODO: add topologySpreadConstraints / podAntiAffinity across zones at scale.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aegis-llm-triage
+  namespace: aegissoc
+  labels:
+    app: aegis-llm-triage
+spec:
+  selector:
+    app: aegis-llm-triage
+  ports:
+    - name: http
+      port: 8007
+      targetPort: 8007
+  type: ClusterIP

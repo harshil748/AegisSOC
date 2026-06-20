@@ -1,0 +1,122 @@
+# Horizontal scaling for the three data-path services that see load
+# proportional to raw event volume: ingestion, normalization, detection.
+# CPU-based autoscaling is the portable baseline; in production, prefer
+# scaling ingestion/normalization on Kafka consumer lag via KEDA
+# (ScaledObject against a Kafka trigger) instead of/in addition to CPU —
+# see docs/SCALABILITY.md "consumer groups" and the commented KEDA example
+# at the bottom of this file.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aegis-ingestion-hpa
+  namespace: aegissoc
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aegis-ingestion
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - { type: Percent, value: 100, periodSeconds: 60 }
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - { type: Percent, value: 25, periodSeconds: 120 }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aegis-normalization-hpa
+  namespace: aegissoc
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aegis-normalization
+  minReplicas: 2
+  maxReplicas: 24
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - { type: Percent, value: 100, periodSeconds: 60 }
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - { type: Percent, value: 25, periodSeconds: 120 }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aegis-detection-hpa
+  namespace: aegissoc
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aegis-detection
+  minReplicas: 2
+  maxReplicas: 16
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - { type: Percent, value: 100, periodSeconds: 60 }
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - { type: Percent, value: 25, periodSeconds: 120 }
+
+---
+# Example KEDA ScaledObject for lag-driven scaling (requires KEDA installed;
+# not applied by default). Uncomment/apply once a KEDA Kafka trigger against
+# aegis-kafka is available:
+#
+# apiVersion: keda.sh/v1alpha1
+# kind: ScaledObject
+# metadata:
+#   name: aegis-normalization-keda
+#   namespace: aegissoc
+# spec:
+#   scaleTargetRef:
+#     name: aegis-normalization
+#   minReplicaCount: 2
+#   maxReplicaCount: 24
+#   triggers:
+#     - type: kafka
+#       metadata:
+#         bootstrapServers: aegis-kafka:9092
+#         consumerGroup: normalization-workers
+#         topic: aegis.raw.events
+#         lagThreshold: "5000"

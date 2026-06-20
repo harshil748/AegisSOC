@@ -1,0 +1,17 @@
+apiVersion: v2
+name: aegis
+description: >-
+  AegisSOC — AI-assisted SOC triage platform. Thin Helm wrapper around the
+  same service topology as infra/k8s/*.yaml, parameterized via values.yaml
+  for multi-environment deploys (dev/staging/prod).
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - security
+  - soc
+  - detection
+  - llm
+home: https://github.com/aegissoc/aegissoc
+maintainers:
+  - name: AegisSOC maintainers

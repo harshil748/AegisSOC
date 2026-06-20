@@ -1,0 +1,63 @@
+# Single-replica Postgres for dev/staging parity with docker-compose.
+# Production: use a managed Postgres (RDS/Cloud SQL/Azure Database) or the
+# Zalando/CloudNativePG operator with streaming replicas — see
+# docs/SCALABILITY.md "Scalability path".
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aegis-postgres-data
+  namespace: aegissoc
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aegis-postgres
+  namespace: aegissoc
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: aegis-postgres }
+  template:
+    metadata:
+      labels: { app: aegis-postgres }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports: [{ containerPort: 5432 }]
+          env:
+            - name: POSTGRES_USER
+              value: aegis
+            - name: POSTGRES_DB
+              value: aegis
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: aegis-secrets, key: POSTGRES_PASSWORD }
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "aegis"] }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "1", memory: "1Gi" }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: aegis-postgres-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aegis-postgres
+  namespace: aegissoc
+spec:
+  selector: { app: aegis-postgres }
+  ports: [{ port: 5432, targetPort: 5432 }]

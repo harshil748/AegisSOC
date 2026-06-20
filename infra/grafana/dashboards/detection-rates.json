@@ -1,0 +1,75 @@
+{
+  "title": "AegisSOC - Detection Rates",
+  "uid": "aegis-detection-rates",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["aegissoc", "detection"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Alerts emitted by severity (rate/min)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "sum(rate(aegis_detection_alerts_total[5m])) by (severity) * 60", "legendFormat": "{{severity}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Rule evaluations (5m)",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "sum(increase(aegis_detection_rules_evaluated_total[5m]))", "refId": "A" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Disruptive actions requiring approval (5m)",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "sum(increase(aegis_response_disruptive_total[5m]))", "refId": "A" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Cases created vs. status transitions (rate/5m)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "sum(rate(aegis_case_created_total[5m]))", "legendFormat": "created", "refId": "A" },
+        { "expr": "sum(rate(aegis_case_updated_total[5m])) by (status)", "legendFormat": "{{status}}", "refId": "B" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Approval decisions (approved vs rejected)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "sum(rate(aegis_approval_decisions_total[5m])) by (decision)", "legendFormat": "{{decision}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "LLM groundedness proxy: prompt-injection blocks vs. reports generated",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        { "expr": "sum(rate(aegis_llm_reports_total[5m]))", "legendFormat": "reports/sec", "refId": "A" },
+        { "expr": "sum(rate(aegis_llm_prompt_injection_blocked_total[5m]))", "legendFormat": "injection blocks/sec", "refId": "B" }
+      ]
+    }
+  ]
+}

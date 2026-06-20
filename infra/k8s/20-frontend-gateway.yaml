@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aegis-frontend-gateway
+  namespace: aegissoc
+  labels:
+    app: aegis-frontend-gateway
+    app.kubernetes.io/part-of: aegissoc
+    app.kubernetes.io/component: frontend_gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aegis-frontend-gateway
+  template:
+    metadata:
+      labels:
+        app: aegis-frontend-gateway
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: frontend-gateway
+          image: ghcr.io/aegissoc/frontend_gateway:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: aegis-config
+            - secretRef:
+                name: aegis-secrets
+          env:
+            - name: SERVICE_PORT
+              value: "8080"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "192Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      # TODO: add topologySpreadConstraints / podAntiAffinity across zones at scale.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aegis-frontend-gateway
+  namespace: aegissoc
+  labels:
+    app: aegis-frontend-gateway
+spec:
+  selector:
+    app: aegis-frontend-gateway
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
