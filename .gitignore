@@ -41,6 +41,9 @@ data/*.sqlite3
 eval/*.json
 eval/load_test_history.md
 
+# Weekly reports
+docs/weekly-reports/
+
 # Terraform-style local state (if added later)
 *.tfstate
 *.tfstate.*
