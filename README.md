@@ -276,26 +276,3 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 # Login: analyst / analyst123
 # Replay → run phishing_ransomware_chain
 ```
-
-## Engineering deliverables checklist
-
-- [x] Modular, service-oriented monorepo (`services/*`, `packages/common`, `frontend`)
-- [x] Canonical event/graph schema (`packages/common/aegis_common/schema/events.py`)
-- [x] `docker-compose.yml` full local stack with healthchecks, networks, volumes, `AEGIS_SYNC_MODE`
-- [x] Kubernetes manifests (`infra/k8s/`) + HPA for ingest/normalize/detect
-- [x] Helm chart (`infra/helm/aegis/`)
-- [x] Prometheus scrape config + Grafana dashboards (kafka lag, latency, detection rates)
-- [x] Sample datasets, seeded demo scenarios, and replay tooling (`data/`, `scripts/`)
-- [x] OpenAPI contract for the public gateway API (`docs/openapi/gateway.yaml`)
-- [x] Architecture decision records (`docs/adr/0001`–`0005`)
-- [x] STRIDE threat model (`docs/threat-model/THREAT_MODEL.md`)
-- [x] Architecture, evaluation, security, and scalability docs (`docs/*.md`)
-- [x] Unit tests (`packages/common/tests`) and a load-test harness (`scripts/load_test_ingest.py`, `tests/load/locustfile.py`)
-- [x] Evidence-grounded LLM triage with output validation (`services/llm_triage`)
-- [x] Human-in-the-loop approval workflow gating all disruptive actions (`services/approval`)
-- [x] Full audit trail for every AI recommendation and human decision (`services/audit`)
-
-## Contributing / license
-
-MIT licensed — see [`LICENSE`](LICENSE). See [`prompt.md`](prompt.md) for
-the original project brief this repository implements.
