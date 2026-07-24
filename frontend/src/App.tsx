@@ -8,8 +8,8 @@ import { CasesPage } from "./pages/CasesPage";
 import { InvestigationWorkspacePage } from "./pages/InvestigationWorkspacePage";
 import { LoginPage } from "./pages/LoginPage";
 import { MetricsPage } from "./pages/MetricsPage";
+import { DemoPage } from "./pages/DemoPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
-import { ReplayPage } from "./pages/ReplayPage";
 import { ResponsePage } from "./pages/ResponsePage";
 
 export default function App() {
@@ -31,8 +31,8 @@ export default function App() {
         <Route path="/investigate/:caseId" element={<InvestigationWorkspacePage />} />
         <Route path="/response" element={<ResponsePage />} />
         <Route path="/audit" element={<AuditPage />} />
-        <Route path="/replay" element={<ReplayPage />} />
         <Route path="/metrics" element={<MetricsPage />} />
+        <Route path="/demo" element={<DemoPage />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />
