@@ -1,39 +1,37 @@
 import { api } from "./client";
 import type { DemoRunResponse, DemoScenario } from "../types/domain";
 
-/**
- * Static catalog of the three seeded demo scenarios described in the product
- * spec (prompt.md). The backend is the source of truth when reachable; this
- * list is used as the display fallback so the Replay page renders
- * immediately, but running a scenario always calls the real endpoint.
- */
+/** Catalog of the three seeded end-to-end demo scenarios. */
 export const DEMO_SCENARIOS: DemoScenario[] = [
   {
-    scenario_id: "phishing_to_ransomware",
-    name: "Phishing \u2192 Ransomware",
+    scenario_id: "phishing_ransomware_chain",
+    title: "Phishing → Ransomware Chain",
     description:
-      "Phishing email delivers a macro-laced document that spawns PowerShell, harvests credentials, moves laterally, then detonates ransomware on a file server.",
+      "A finance analyst receives a spoofed invoice email with a macro-enabled Word document. Opening it launches PowerShell, C2 beaconing, credential access, lateral movement, and ransomware staging.",
     expected_outcome:
-      "Escalates to a critical case with a full attack-path graph and a quarantine/isolate recommendation queued for approval.",
-    tags: ["phishing", "credential-access", "lateral-movement", "ransomware"],
+      "Multiple correlated alerts, a high-severity case, attack-path graph across email→host→process→IP, grounded triage, and a disruptive containment recommendation pending approval.",
+    event_count: 18,
+    tags: ["phishing", "ransomware", "lateral-movement"],
   },
   {
-    scenario_id: "benign_admin_powershell",
-    name: "Benign Admin PowerShell",
+    scenario_id: "benign_admin_false_positive",
+    title: "Benign Admin False Positive",
     description:
-      "A scheduled task runs an administrator PowerShell maintenance script that superficially resembles living-off-the-land attacker behavior.",
+      "A change-managed SCCM patch task runs Base64-encoded PowerShell on an IT admin workstation. It looks suspicious but is authorized maintenance.",
     expected_outcome:
-      "Low risk score, triage report explains benign rationale, no disruptive action recommended \u2014 demonstrates false-positive suppression.",
-    tags: ["false-positive", "powershell", "scheduled-task"],
+      "Low risk score, triage explains the benign rationale, and no disruptive action is recommended — demonstrating false-positive suppression.",
+    event_count: 9,
+    tags: ["false-positive", "powershell", "admin"],
   },
   {
     scenario_id: "repeat_attacker_infra",
-    name: "Repeat Attacker Infrastructure",
+    title: "Repeat Attacker Infrastructure",
     description:
-      "New alert touches IP/domain infrastructure previously observed in a prior confirmed incident, demonstrating graph memory across cases.",
+      "A new alert touches IP/domain infrastructure previously observed in a confirmed incident, showing how graph memory links current activity to past compromise.",
     expected_outcome:
-      "Case links to historical incident via shared entities, risk score boosted by intel/graph history, high analyst confidence.",
-    tags: ["threat-intel", "graph-memory", "repeat-offender"],
+      "Elevated graph/intel score, case linked to known-bad infrastructure, and investigation workspace highlighting historical edges.",
+    event_count: 11,
+    tags: ["graph-memory", "infra-reuse", "intel"],
   },
 ];
 
