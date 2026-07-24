@@ -88,7 +88,8 @@ export type ActionStatus =
   | "approved"
   | "rejected"
   | "executed"
-  | "rolled_back";
+  | "rolled_back"
+  | "auto_applied_dry_run";
 
 export type UserRole = "analyst" | "admin";
 
@@ -299,22 +300,6 @@ export interface AuditListResponse {
   total: number;
 }
 
-export interface DemoScenario {
-  scenario_id: string;
-  name: string;
-  description: string;
-  expected_outcome: string;
-  tags: string[];
-}
-
-export interface DemoRunResponse {
-  status: "started" | "completed" | "failed" | string;
-  message: string;
-  scenario_id: string;
-  case_id?: string | null;
-  run_id?: string;
-}
-
 export interface MetricsSnapshot {
   generated_at: string;
   ingestion: {
@@ -348,4 +333,34 @@ export interface MetricsSnapshot {
     rejected_today: number;
     executed_today: number;
   };
+}
+
+export interface DemoScenario {
+  scenario_id: string;
+  title: string;
+  description: string;
+  expected_outcome?: string | null;
+  event_count?: number;
+  tags?: string[];
+}
+
+export interface DemoPipelineStage {
+  id: string;
+  label: string;
+  detail: string;
+}
+
+export interface DemoRunResponse {
+  status: string;
+  message?: string;
+  scenario_id: string;
+  case_id?: string | null;
+  run_id?: string | null;
+  title?: string;
+  elapsed_ms?: number;
+  events_processed?: number;
+  events_total?: number;
+  alerts?: unknown[];
+  cases?: unknown[];
+  pipeline_stages?: string[];
 }

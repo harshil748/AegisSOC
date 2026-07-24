@@ -16,6 +16,61 @@ logger = logging.getLogger("aegis.graph_builder.neo4j")
 MAX_OBSERVATIONS = 25
 
 
+def _node_to_dict(node: Any) -> dict[str, Any]:
+    raw = dict(node) if not isinstance(node, dict) else dict(node)
+    props_json = raw.pop("properties_json", None)
+    properties: dict[str, Any] = {}
+    if isinstance(props_json, str) and props_json:
+        try:
+            properties = json.loads(props_json)
+        except json.JSONDecodeError:
+            properties = {}
+    elif isinstance(raw.get("properties"), dict):
+        properties = dict(raw["properties"])
+    display_name = properties.get("display_name") or properties.get("name") or raw.get("node_id")
+    return {
+        "node_id": raw.get("node_id"),
+        "node_type": raw.get("node_type") or next(
+            (lbl for lbl in getattr(node, "labels", []) if lbl not in {"Entity"}),
+            "unknown",
+        ),
+        "tenant_id": raw.get("tenant_id", "default"),
+        "labels": list(getattr(node, "labels", raw.get("labels", [])) or []),
+        "properties": properties,
+        "display_name": display_name,
+        "first_seen": raw.get("first_seen"),
+        "last_seen": raw.get("last_seen"),
+        "count": raw.get("count", 1),
+        "confidence": raw.get("confidence", 0.8),
+        "sources": raw.get("sources") or [],
+        "observations": raw.get("observations") or [],
+    }
+
+
+def _relationship_to_edge(rel: Any) -> dict[str, Any]:
+    raw = dict(rel) if not isinstance(rel, dict) else dict(rel)
+    src = rel.start_node if hasattr(rel, "start_node") else None
+    dst = rel.end_node if hasattr(rel, "end_node") else None
+    src_id = raw.get("src_id") or (dict(src).get("node_id") if src is not None else None)
+    dst_id = raw.get("dst_id") or (dict(dst).get("node_id") if dst is not None else None)
+    edge_type = raw.get("edge_type") or getattr(rel, "type", None) or "RELATED"
+    edge_id = raw.get("edge_id") or raw.get("edge_id_key") or f"{src_id}|{edge_type}|{dst_id}"
+    return {
+        "edge_id": edge_id,
+        "edge_type": edge_type,
+        "src_id": src_id,
+        "dst_id": dst_id,
+        "tenant_id": raw.get("tenant_id", "default"),
+        "first_seen": raw.get("first_seen"),
+        "last_seen": raw.get("last_seen"),
+        "count": raw.get("count", 1),
+        "confidence": raw.get("confidence", 0.8),
+        "sources": raw.get("sources") or [],
+        "properties": raw.get("properties") or {},
+        "observations": raw.get("observations") or [],
+    }
+
+
 class Neo4jGraphStore(GraphStore):
     backend_name = "neo4j"
 
@@ -125,11 +180,18 @@ class Neo4jGraphStore(GraphStore):
             record = await result.single()
             if not record:
                 return {"root": node_id, "nodes": [], "edges": []}
-            nodes = [dict(record["n"])] + [dict(n) for n in record["neighbors"]]
+            nodes = [_node_to_dict(record["n"])] + [_node_to_dict(n) for n in record["neighbors"] if n is not None]
             edges: list[dict] = []
+            seen: set[str] = set()
             for path in record["paths"] or []:
+                if path is None:
+                    continue
                 for rel in path.relationships:
-                    edges.append(dict(rel))
+                    edge = _relationship_to_edge(rel)
+                    key = edge["edge_id"]
+                    if key not in seen:
+                        seen.add(key)
+                        edges.append(edge)
             return {"root": node_id, "nodes": nodes[:limit], "edges": edges[:limit]}
 
     async def attack_path(self, src_id: str, dst_id: str, max_depth: int = 6) -> dict[str, Any]:

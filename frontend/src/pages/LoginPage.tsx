@@ -7,7 +7,7 @@ export function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [username, setUsername] = useState("analyst");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -40,10 +40,6 @@ export function LoginPage() {
             <h1>AegisSOC</h1>
             <span>AI-assisted SOC Analyst Console</span>
           </div>
-        </div>
-
-        <div className="login-hint">
-          Demo credentials: <strong>analyst</strong> / <strong>analyst123</strong>
         </div>
 
         {error && (

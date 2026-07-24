@@ -13,7 +13,7 @@ type StatusFilter = ActionStatus | "all";
 
 export function ResponsePage() {
   const toast = useToast();
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [modalState, setModalState] = useState<{
     action: ActionRecommendation;
     decision: "approved" | "rejected";
@@ -67,12 +67,13 @@ export function ResponsePage() {
         </div>
         <div className="page-actions">
           <select className="select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
-            <option value="pending">Pending</option>
+            <option value="all">All</option>
+            <option value="pending">Pending approval</option>
+            <option value="auto_applied_dry_run">Auto-applied (dry-run)</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
             <option value="executed">Executed</option>
             <option value="rolled_back">Rolled back</option>
-            <option value="all">All</option>
           </select>
           <button className="btn btn-sm" onClick={refetch}>
             <RefreshIcon size={13} /> Refresh
@@ -86,7 +87,7 @@ export function ResponsePage() {
         <EmptyState
           icon={<ResponseIcon size={26} className="state-icon" />}
           title="No recommendations in this queue"
-          detail="Response actions appear here once the playbook engine recommends notify, containment, or escalation steps for a case."
+          detail="Run a Demo scenario first, then refresh. High-risk cases create Pending approvals; low-risk ones appear as Auto-applied (dry-run). Switch the status filter to All if the list looks empty."
         />
       )}
       {!loading && !error && actions.length > 0 && (
