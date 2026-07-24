@@ -50,15 +50,15 @@ npm run lint       # eslint
 
 | Route | Page | Description |
 | --- | --- | --- |
-| `/login` | Login | JWT login form (seeded `analyst` / `analyst123`) |
+| `/login` | Login | JWT login form |
 | `/alerts` | Alert Queue | Prioritized table (severity, risk score, title, techniques, status, created), filters, click-to-investigate |
 | `/investigate/:caseId` | Investigation Workspace | Cytoscape attack-path graph with legend + entity detail drawer, case timeline, evidence panel with provenance, LLM triage report panel |
 | `/cases` | Cases | List with search/status/severity filters |
 | `/cases/:caseId` | Case Detail | Case summary, linked alerts, ATT&CK techniques, response recommendations, link into the Investigation Workspace |
 | `/response` | Response / Approvals | Recommendation cards + approval modal (impact/risk summary, dry-run toggle, approve/reject) |
 | `/audit` | Audit Trail | Searchable, expandable audit event log (actor, action, resource, evidence, prompt hash) |
-| `/replay` | Replay / Demo | Run-scenario buttons for the 3 seeded demo scenarios |
 | `/metrics` | Metrics | Ingestion, detection, case, LLM, and response health cards from `/api/metrics` |
+| `/demo` | Demo | Three guided scenarios with full pipeline walkthrough (ingest → approve) |
 
 The app shell (`src/components/layout/AppShell.tsx`) provides the sidebar
 nav, a live gateway-reachability pill, the signed-in analyst's role badge,
@@ -84,7 +84,6 @@ GET  /api/cases/:id/evidence             -> { items }   (evidence panel provenan
 GET  /api/actions                        ?case_id=&status= -> ActionRecommendation[]
 POST /api/approvals                      { action_id, case_id, decision, rationale, dry_run } -> ApprovalDecision
 GET  /api/audit                          ?q=&actor=&actor_type=&limit=&offset= -> { items, total }
-POST /api/demo/run-scenario              { scenario_id } -> DemoRunResponse
 GET  /api/metrics                        -> MetricsSnapshot
 ```
 
@@ -97,14 +96,13 @@ schema evolves.
 
 ```
 src/
-  api/            fetch client + one module per resource (alerts, cases, actions, audit, demo, metrics, auth)
+  api/            fetch client + one module per resource (alerts, cases, actions, audit, metrics, auth)
   components/
     layout/       AppShell, Sidebar, Topbar, ProtectedRoute
     common/       Badges, ConfidenceMeter, loading/empty/error state blocks
     alerts/       AlertFilters, AlertTable
     investigation/AttackGraph (Cytoscape), GraphLegend, EntityDetailPanel, CaseTimeline, EvidencePanel, TriageReportPanel
     response/     RecommendationCard, ApprovalModal
-    demo/         ScenarioCard
     metrics/      MetricCard
     icons.tsx     inline SVG icon set (no icon-font dependency)
   context/        AuthContext (JWT session), ToastContext (notifications)
@@ -117,8 +115,8 @@ src/
 
 ## Design system
 
-The theme (`src/styles/theme.css`) is a dark navy/slate palette with steel-blue
-accents — deliberately avoiding the purple-glow marketing-page look, since
+The theme (`src/styles/theme.css`) is a true-black palette with vivid orange
+accents — deliberately avoiding steel-blue / AI-glow marketing looks, since
 this is a dense analyst tool meant for long shifts:
 
 - High-contrast data tables with sticky headers, hover/selected row states
