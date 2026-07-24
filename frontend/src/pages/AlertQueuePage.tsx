@@ -73,7 +73,7 @@ export function AlertQueuePage() {
         <EmptyState
           icon={<AlertQueueIcon size={28} className="state-icon" />}
           title="No alerts match these filters"
-          detail="Try clearing filters, or run a demo scenario from the Replay page to generate sample alerts."
+          detail="Try clearing filters, or wait for new detections to appear in the queue."
         />
       )}
       {!loading && !error && sortedAlerts.length > 0 && (
