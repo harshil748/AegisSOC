@@ -10,8 +10,8 @@ const ROUTE_LABELS: Record<string, string> = {
   investigate: "Investigation Workspace",
   response: "Response / Approvals",
   audit: "Audit Trail",
-  replay: "Replay / Demo",
   metrics: "Metrics",
+  demo: "Demo",
 };
 
 function useBreadcrumb(): string {
