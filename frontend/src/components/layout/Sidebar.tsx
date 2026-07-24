@@ -3,8 +3,8 @@ import {
   AlertQueueIcon,
   AuditIcon,
   CaseIcon,
+  DemoIcon,
   MetricsIcon,
-  ReplayIcon,
   ResponseIcon,
   ShieldIcon,
 } from "../icons";
@@ -27,8 +27,8 @@ export function Sidebar({ pendingApprovals }: { pendingApprovals?: number }) {
       badgeCount: pendingApprovals,
     },
     { to: "/audit", label: "Audit Trail", icon: AuditIcon },
-    { to: "/replay", label: "Replay / Demo", icon: ReplayIcon },
     { to: "/metrics", label: "Metrics", icon: MetricsIcon },
+    { to: "/demo", label: "Demo", icon: DemoIcon },
   ];
 
   return (
