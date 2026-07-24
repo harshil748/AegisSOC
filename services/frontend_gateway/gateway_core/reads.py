@@ -31,7 +31,28 @@ settings = Settings()
 
 
 def _lift_display_name(node: dict[str, Any]) -> dict[str, Any]:
-    return {**node, "display_name": node.get("properties", {}).get("display_name")}
+    props = node.get("properties") if isinstance(node.get("properties"), dict) else {}
+    display = node.get("display_name") or props.get("display_name") or props.get("name") or node.get("node_id")
+    return {**node, "display_name": display}
+
+
+def _edge_key(edge: dict[str, Any]) -> str:
+    if edge.get("edge_id"):
+        return str(edge["edge_id"])
+    return f"{edge.get('src_id')}|{edge.get('edge_type')}|{edge.get('dst_id')}"
+
+
+async def _alert_id_to_case_id(case_management_url: str) -> dict[str, str]:
+    """Map alert_id -> case_id from case management (source of truth for linkage)."""
+    mapping: dict[str, str] = {}
+    cases_result = await list_cases(case_management_url, limit=10_000)
+    for case in cases_result.get("items", []):
+        case_id = case.get("case_id")
+        if not case_id:
+            continue
+        for alert_id in case.get("alert_ids") or []:
+            mapping[str(alert_id)] = str(case_id)
+    return mapping
 
 
 # --------------------------------------------------------------------------- alerts
@@ -39,6 +60,7 @@ def _lift_display_name(node: dict[str, Any]) -> dict[str, Any]:
 
 async def list_alerts(
     detection_url: str,
+    case_management_url: str | None = None,
     *,
     severity: str | None = None,
     status: str | None = None,
@@ -52,6 +74,17 @@ async def list_alerts(
         alerts = [a.model_dump(mode="json") for a in state.cluster_store.all_alerts()]
     else:
         alerts = await fetch_json(detection_url, "/api/v1/alerts") or []
+
+    if case_management_url:
+        try:
+            alert_cases = await _alert_id_to_case_id(case_management_url)
+            for alert in alerts:
+                if not alert.get("case_id"):
+                    linked = alert_cases.get(str(alert.get("alert_id", "")))
+                    if linked:
+                        alert["case_id"] = linked
+        except Exception:
+            pass
 
     if severity:
         alerts = [a for a in alerts if a.get("severity") == severity]
@@ -68,8 +101,10 @@ async def list_alerts(
     return {"items": alerts[offset : offset + limit], "total": total}
 
 
-async def get_alert(detection_url: str, alert_id: str) -> dict[str, Any] | None:
-    result = await list_alerts(detection_url, limit=10_000)
+async def get_alert(
+    detection_url: str, alert_id: str, case_management_url: str | None = None
+) -> dict[str, Any] | None:
+    result = await list_alerts(detection_url, case_management_url, limit=10_000)
     for alert in result["items"]:
         if alert.get("alert_id") == alert_id:
             return alert
@@ -170,9 +205,12 @@ async def get_case_graph(
         if not neighborhood:
             continue
         for node in neighborhood.get("nodes", []):
-            nodes_by_id[node["node_id"]] = _lift_display_name(node)
+            node_id = node.get("node_id")
+            if not node_id:
+                continue
+            nodes_by_id[node_id] = _lift_display_name(node)
         for edge in neighborhood.get("edges", []):
-            edges_by_id[edge["edge_id"]] = edge
+            edges_by_id[_edge_key(edge)] = edge
 
     return {"nodes": list(nodes_by_id.values()), "edges": list(edges_by_id.values())}
 
@@ -466,7 +504,7 @@ async def get_metrics_snapshot(
     today = datetime.now(timezone.utc).date().isoformat()
     counters = metrics_state.snapshot()
 
-    alerts_result = await list_alerts(detection_url, limit=10_000)
+    alerts_result = await list_alerts(detection_url, case_management_url, limit=10_000)
     alerts = alerts_result["items"]
     alerts_today = sum(1 for a in alerts if str(a.get("created_at", "")).startswith(today))
     open_alerts = sum(1 for a in alerts if a.get("status") == "open")

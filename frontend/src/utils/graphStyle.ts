@@ -1,20 +1,21 @@
 import type { EdgeType, NodeType } from "../types/domain";
 
+/** Node colors tuned for true-black + orange UI (no AI blue/cyan). */
 export const NODE_TYPE_COLORS: Record<NodeType, string> = {
-  User: "#4f8fd1",
+  User: "#FF6A00",
   Host: "#3fb97f",
   Process: "#e8c34a",
-  File: "#8fb8e0",
-  IP: "#f0883e",
-  Domain: "#5eead4",
-  URL: "#38bdf8",
-  Hash: "#94a3b8",
-  RegistryKey: "#fbbf24",
+  File: "#a8a8a3",
+  IP: "#d97706",
+  Domain: "#8fbc8f",
+  URL: "#c4a574",
+  Hash: "#6e6e69",
+  RegistryKey: "#e8c34a",
   Alert: "#e5484d",
   DetectionRule: "#d97786",
-  Email: "#60a5fa",
-  CloudResource: "#22d3ee",
-  K8sWorkload: "#34d399",
+  Email: "#ff9440",
+  CloudResource: "#7a9e7e",
+  K8sWorkload: "#5fad7a",
   AttackTechnique: "#f87171",
   Incident: "#eab308",
 };
@@ -39,27 +40,27 @@ export const NODE_TYPE_ORDER: NodeType[] = [
 ];
 
 export function nodeColor(type: NodeType): string {
-  return NODE_TYPE_COLORS[type] ?? "#7c8ba1";
+  return NODE_TYPE_COLORS[type] ?? "#6e6e69";
 }
 
 export const EDGE_TYPE_COLORS: Partial<Record<EdgeType, string>> = {
   spawned: "#e8c34a",
   executed: "#e8c34a",
-  connected_to: "#f0883e",
-  resolved_to: "#5eead4",
+  connected_to: "#d97706",
+  resolved_to: "#8fbc8f",
   downloaded: "#f87171",
   modified: "#d97786",
-  logged_in_to: "#4f8fd1",
-  authenticated_to: "#4f8fd1",
-  created: "#94a3b8",
-  accessed: "#94a3b8",
-  emailed: "#60a5fa",
+  logged_in_to: "#FF6A00",
+  authenticated_to: "#FF6A00",
+  created: "#6e6e69",
+  accessed: "#6e6e69",
+  emailed: "#ff9440",
   triggered: "#e5484d",
-  related_to: "#7c8ba1",
-  observed_in: "#7c8ba1",
+  related_to: "#6e6e69",
+  observed_in: "#6e6e69",
   mapped_to_technique: "#f87171",
 };
 
 export function edgeColor(type: EdgeType): string {
-  return EDGE_TYPE_COLORS[type] ?? "#556277";
+  return EDGE_TYPE_COLORS[type] ?? "#3a3a3a";
 }

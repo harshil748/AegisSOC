@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 20% 15%, #101a2c 0%, var(--bg-canvas) 55%);
+  background: radial-gradient(circle at 20% 15%, rgba(255, 106, 0, 0.1) 0%, var(--bg-canvas) 55%);
   padding: var(--sp-4);
 }
 .login-card {

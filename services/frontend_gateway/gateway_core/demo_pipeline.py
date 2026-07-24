@@ -50,13 +50,15 @@ async def run_scenario(scenario_id: str, tenant_id: str = "default") -> dict[str
         raise ScenarioNotFound(str(exc)) from exc
 
     started_at = time.monotonic()
-    # Isolate each demo/scenario run so graph memory and alert clusters from a
-    # prior phishing chain cannot inflate a benign false-positive score.
+    # Isolate each scenario run so prior graph/alert state cannot inflate a
+    # benign false-positive score — but keep writing into the *shared* default
+    # DetectionState so BFF reads (list_alerts, case graph) see the results.
     from aegis_common.graphstore import reset_store_for_tests
-    from detection_core.pipeline import new_detection_state
+    from detection_core.pipeline import get_default_state, reset_default_state
 
     reset_store_for_tests()
-    detection_state = new_detection_state()
+    reset_default_state()
+    detection_state = get_default_state()
     graph_store = await detection_state.ensure_graph_store(settings)
     sessionmaker = mods.case_sessionmaker_for(settings.postgres_dsn)
 
@@ -126,17 +128,62 @@ async def run_scenario(scenario_id: str, tenant_id: str = "default") -> dict[str
 
         if alert is not None:
             alert_dict = alert.model_dump(mode="json")
-            alerts_by_id[alert.alert_id] = alert_dict
             async with sessionmaker() as session:
                 async with session.begin():
                     case = await mods.case_repository.upsert_case_from_alert(session, alert_dict)
                 case_id = case.case_id
+            alert.case_id = case_id
+            alert_dict["case_id"] = case_id
+            alerts_by_id[alert.alert_id] = alert_dict
             if case_id not in case_ids_touched:
                 case_ids_touched.append(case_id)
 
     cases_out: list[dict[str, Any]] = []
     triage_reports: dict[str, Any] = {}
     recommendations: dict[str, Any] = {}
+    audit_events_written = 0
+
+    await ensure_db("audit", mods.audit_init_db, settings.postgres_dsn)
+    audit_sessionmaker = mods.audit_sessionmaker_for(settings.postgres_dsn)
+
+    async def _append_audit(
+        *,
+        actor: str,
+        actor_type: str,
+        action: str,
+        resource_type: str,
+        resource_id: str,
+        details: dict[str, Any] | None = None,
+        evidence_refs: list[str] | None = None,
+        prompt_hash: str | None = None,
+    ) -> None:
+        nonlocal audit_events_written
+        async with audit_sessionmaker() as audit_session:
+            async with audit_session.begin():
+                await mods.audit_repository.append_event(
+                    audit_session,
+                    mods.AuditEventIn(
+                        tenant_id=tenant_id,
+                        actor=actor,
+                        actor_type=actor_type,
+                        action=action,
+                        resource_type=resource_type,
+                        resource_id=resource_id,
+                        details=details or {},
+                        evidence_refs=evidence_refs or [],
+                        prompt_hash=prompt_hash,
+                    ),
+                )
+        audit_events_written += 1
+
+    await _append_audit(
+        actor="demo_pipeline",
+        actor_type="service",
+        action="scenario_run_started",
+        resource_type="scenario",
+        resource_id=scenario_id,
+        details={"tenant_id": tenant_id, "events_total": len(raw_events)},
+    )
 
     for case_id in case_ids_touched:
         async with sessionmaker() as session:
@@ -168,6 +215,19 @@ async def run_scenario(scenario_id: str, tenant_id: str = "default") -> dict[str
             groundedness_score=report.groundedness_score,
         )
         triage_reports[case_id] = report.model_dump(mode="json")
+        await _append_audit(
+            actor="llm_triage",
+            actor_type="llm",
+            action="triage_report_generated",
+            resource_type="case",
+            resource_id=case_id,
+            details={
+                "likely_objective": report.likely_objective,
+                "groundedness_score": report.groundedness_score,
+                "model_id": report.model_id,
+            },
+            evidence_refs=list(report.evidence_cited or [])[:12],
+        )
 
         criticality = max(
             (event_criticality.get(eid, 0.5) for a in alert_payloads for eid in a.get("event_ids", [])),
@@ -184,6 +244,37 @@ async def run_scenario(scenario_id: str, tenant_id: str = "default") -> dict[str
             logger.exception("recommendation_failed case_id=%s", case_id)
             continue
         recommendations[case_id] = recommendation.model_dump(mode="json")
+        await _append_audit(
+            actor="response_policy",
+            actor_type="service",
+            action="recommendation_created",
+            resource_type="action",
+            resource_id=recommendation.action_id,
+            details={
+                "case_id": case_id,
+                "action_class": recommendation.action_class.value
+                if hasattr(recommendation.action_class, "value")
+                else str(recommendation.action_class),
+                "status": recommendation.status,
+                "disruptive": recommendation.disruptive,
+                "title": recommendation.title,
+            },
+            evidence_refs=[case_id],
+        )
+
+    await _append_audit(
+        actor="demo_pipeline",
+        actor_type="service",
+        action="scenario_run_completed",
+        resource_type="scenario",
+        resource_id=scenario_id,
+        details={
+            "alerts": len(alerts_by_id),
+            "cases": len(cases_out),
+            "recommendations": len(recommendations),
+            "top_case_id": cases_out[0]["case_id"] if cases_out else None,
+        },
+    )
 
     graph_stats = await graph_store.stats()
     elapsed_ms = round((time.monotonic() - started_at) * 1000, 1)
@@ -217,6 +308,7 @@ async def run_scenario(scenario_id: str, tenant_id: str = "default") -> dict[str
         "cases": cases_out,
         "triage_reports": triage_reports,
         "recommendations": recommendations,
+        "audit_events_written": audit_events_written,
         "graph_updates_applied": graph_updates_applied,
         "graph_stats": graph_stats,
     }

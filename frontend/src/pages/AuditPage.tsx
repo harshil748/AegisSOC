@@ -156,7 +156,7 @@ export function AuditPage() {
         <EmptyState
           icon={<AuditIcon size={28} className="state-icon" />}
           title="No audit events found"
-          detail="Every triage recommendation, approval, and override is logged here for compliance and review."
+          detail="Audit events are written when a Demo scenario runs (triage + recommendations) and when you approve/reject actions. Run a Demo, then refresh."
         />
       )}
       {!loading && !error && events.length > 0 && (

@@ -1,53 +1,54 @@
 /**
  * AegisSOC dark SOC theme.
- * Navy/slate base with steel-blue accents. Optimized for long analyst
+ * True-black surfaces with vivid orange accents. Optimized for long analyst
  * sessions: high contrast text, muted chrome, saturated status colors only
  * where they carry meaning (severity, status, risk).
  */
 :root {
   color-scheme: dark;
 
-  /* Surfaces */
-  --bg-canvas: #0a0e16;
-  --bg-app: #0d121c;
-  --bg-panel: #121826;
-  --bg-panel-raised: #161e2e;
-  --bg-elevated: #1b2436;
-  --bg-hover: #1f2a3f;
-  --bg-inset: #0c101a;
+  /* Surfaces — true black stack */
+  --bg-canvas: #000000;
+  --bg-app: #050505;
+  --bg-panel: #0c0c0c;
+  --bg-panel-raised: #141414;
+  --bg-elevated: #1a1a1a;
+  --bg-hover: #222222;
+  --bg-inset: #080808;
 
-  /* Borders */
-  --border-subtle: #1e2738;
-  --border-default: #263349;
-  --border-strong: #354561;
+  /* Borders — neutral (no blue tint) */
+  --border-subtle: #1f1f1f;
+  --border-default: #2a2a2a;
+  --border-strong: #3a3a3a;
 
-  /* Text */
-  --text-primary: #e7edf6;
-  --text-secondary: #a3b1c6;
-  --text-tertiary: #6b7a92;
-  --text-disabled: #4b5871;
-  --text-inverse: #0a0e16;
+  /* Text — warm neutrals */
+  --text-primary: #f2f2f0;
+  --text-secondary: #a8a8a3;
+  --text-tertiary: #6e6e69;
+  --text-disabled: #4a4a46;
+  --text-inverse: #000000;
 
-  /* Steel-blue accent ramp */
-  --accent-50: #eaf2fb;
-  --accent-200: #a9c6e4;
-  --accent-400: #6ea0cf;
-  --accent-500: #4f8fd1;
-  --accent-600: #3d76b3;
-  --accent-700: #2f5c8c;
-  --accent-glow: rgba(79, 143, 209, 0.18);
+  /* Orange accent ramp */
+  --accent-50: #fff4eb;
+  --accent-200: #ffc999;
+  --accent-300: #ffb366;
+  --accent-400: #ff9440;
+  --accent-500: #ff6a00;
+  --accent-600: #e55f00;
+  --accent-700: #cc5500;
+  --accent-glow: rgba(255, 106, 0, 0.12);
 
-  /* Severity scale */
+  /* Severity scale (high ≠ brand orange) */
   --sev-critical: #e5484d;
   --sev-critical-bg: rgba(229, 72, 77, 0.14);
-  --sev-high: #f0883e;
-  --sev-high-bg: rgba(240, 136, 62, 0.14);
+  --sev-high: #d97706;
+  --sev-high-bg: rgba(217, 119, 6, 0.14);
   --sev-medium: #e8c34a;
   --sev-medium-bg: rgba(232, 195, 74, 0.14);
-  --sev-low: #4f8fd1;
-  --sev-low-bg: rgba(79, 143, 209, 0.14);
-  --sev-info: #7c8ba1;
-  --sev-info-bg: rgba(124, 139, 161, 0.14);
+  --sev-low: #8a8a84;
+  --sev-low-bg: rgba(138, 138, 132, 0.14);
+  --sev-info: #6e6e69;
+  --sev-info-bg: rgba(110, 110, 105, 0.14);
 
   /* Semantic status */
   --status-success: #3fb97f;
@@ -56,13 +57,13 @@
   --status-warning-bg: rgba(232, 195, 74, 0.14);
   --status-danger: #e5484d;
   --status-danger-bg: rgba(229, 72, 77, 0.14);
-  --status-info: #4f8fd1;
-  --status-info-bg: rgba(79, 143, 209, 0.14);
-  --status-neutral: #7c8ba1;
-  --status-neutral-bg: rgba(124, 139, 161, 0.14);
+  --status-info: #8a8a84;
+  --status-info-bg: rgba(138, 138, 132, 0.14);
+  --status-neutral: #6e6e69;
+  --status-neutral-bg: rgba(110, 110, 105, 0.14);
 
   /* Typography */
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+  --font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
     Helvetica, Arial, sans-serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono",
     Menlo, monospace;
@@ -84,9 +85,9 @@
   --radius-xl: 14px;
 
   /* Elevation */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.55);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.7);
   --shadow-focus: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--accent-500);
 
   /* Layout */
