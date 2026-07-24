@@ -1,6 +1,7 @@
 .DEFAULT_GOAL := help
 COMPOSE ?= docker compose
-PY ?= python3
+# Prefer the project venv when present (avoids Homebrew python3 missing deps).
+PY ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
 GATEWAY_URL ?= http://localhost:8080
 
 .PHONY: help up up-observability down restart logs ps build seed replay demo \
