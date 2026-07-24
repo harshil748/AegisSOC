@@ -45,12 +45,15 @@ export function AlertTable({
         <tbody>
           {alerts.map((alert) => {
             const risk = riskScoreToPercent(alert.risk.calibrated_score || alert.risk.ensemble_score);
-            const targetId = alert.case_id ?? alert.alert_id;
+            const caseId = alert.case_id;
             return (
               <tr
                 key={alert.alert_id}
-                className="clickable"
-                onClick={() => navigate(`/investigate/${targetId}`)}
+                className={caseId ? "clickable" : undefined}
+                onClick={() => {
+                  if (caseId) navigate(`/investigate/${caseId}`);
+                }}
+                title={caseId ? undefined : "No linked case yet"}
               >
                 <td>
                   <SeverityBadge severity={alert.severity} />
