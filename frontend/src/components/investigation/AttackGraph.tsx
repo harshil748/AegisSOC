@@ -64,14 +64,14 @@ export function AttackGraph({ nodes, edges, selectedNodeId, onSelectNode }: Atta
           style: {
             "background-color": "data(color)",
             label: "data(label)",
-            color: "#e7edf6",
+            color: "#f2f2f0",
             "font-size": 10,
             "text-valign": "bottom",
             "text-margin-y": 6,
             width: 30,
             height: 30,
             "border-width": 2,
-            "border-color": "#0d121c",
+            "border-color": "#050505",
             "text-wrap": "ellipsis",
             "text-max-width": "90px",
           },
@@ -80,7 +80,7 @@ export function AttackGraph({ nodes, edges, selectedNodeId, onSelectNode }: Atta
           selector: "node:selected",
           style: {
             "border-width": 3,
-            "border-color": "#e7edf6",
+            "border-color": "#ff6a00",
           },
         },
         {
@@ -94,8 +94,8 @@ export function AttackGraph({ nodes, edges, selectedNodeId, onSelectNode }: Atta
             "curve-style": "bezier",
             label: "data(label)",
             "font-size": 8,
-            color: "#a3b1c6",
-            "text-background-color": "#0d121c",
+            color: "#a8a8a3",
+            "text-background-color": "#050505",
             "text-background-opacity": 0.85,
             "text-background-padding": "2px",
           },
@@ -157,8 +157,8 @@ export function AttackGraph({ nodes, edges, selectedNodeId, onSelectNode }: Atta
           <PlayIcon size={24} className="state-icon" />
           <div className="state-title">No graph data</div>
           <div className="state-detail">
-            This case has no entity-relationship graph yet. Run enrichment/graph-builder or a
-            demo scenario to populate it.
+            This case has no entity-relationship graph yet. Graph edges appear after enrichment
+            and graph-builder process related entities.
           </div>
         </div>
       )}
